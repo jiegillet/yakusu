@@ -1,28 +1,38 @@
-module Main exposing (..)
+module Main exposing (main)
 
+import Api exposing (Cred)
+import Array exposing (Array)
 import Browser exposing (Document, UrlRequest)
+import Browser.Dom as Dom
 import Browser.Events as Events
 import Browser.Navigation as Nav exposing (Key)
+import Common exposing (Context)
+import Debug
 import Element as El exposing (Element)
 import Element.Background as Background
 import Element.Border as Border
+import Element.Font as Font
 import Element.Input as Input exposing (OptionState(..))
 import Html exposing (Html)
 import Json.Decode as Decode exposing (Decoder)
+import Json.Encode exposing (Value)
+import Page.Blank as Blank
+import Page.Home as Home
+import Page.Login as Login
+import Page.NotFound as NotFound
+import Page.Translation as Translation
+import Route exposing (Route(..))
 import Svg exposing (Svg)
 import Svg.Attributes as A
 import Svg.Events
+import Task
 import Url exposing (Url)
 import ZipList exposing (ZipList)
 
 
-
--- MAIN
-
-
-main : Program () Model Msg
+main : Program Value Model Msg
 main =
-    Browser.application
+    Api.application
         { init = init
         , view = view
         , update = update
@@ -32,72 +42,65 @@ main =
         }
 
 
-
--- MODEL
-
-
-type alias Model =
-    { drawingState : DrawingState
-    , positions : List Position
-    , translation : Translation
-    , pages : ZipList Page
-    , mode : Mode
-    }
+type Model
+    = NotFound Context
+    | Redirect Url Context
+    | Home Context
+    | Login Login.Model
+    | Translation Translation.Model
 
 
-init : () -> Url -> Key -> ( Model, Cmd Msg )
-init _ _ _ =
-    ( { drawingState = NotDrawing
-      , positions = []
-      , translation = emptyTranslation
-      , pages = testPages
-      , mode = Read
-      }
-    , Cmd.none
+init : Maybe Cred -> Url -> Key -> ( Model, Cmd Msg )
+init maybeCred url key =
+    ( Redirect url (Context maybeCred key 0)
+    , Cmd.batch
+        [ Task.perform GotFirstWindowWidth
+            (Task.map (.viewport >> .width >> round) Dom.getViewport)
+        ]
     )
 
 
-type alias Image =
-    String
+getContext : Model -> Context
+getContext model =
+    case model of
+        NotFound context ->
+            context
+
+        Redirect _ context ->
+            context
+
+        Home context ->
+            context
+
+        Login { context } ->
+            context
+
+        Translation { context } ->
+            context
 
 
-type alias Position =
-    { x : Float, y : Float }
+getKey : Model -> Key
+getKey =
+    getContext >> .key
 
 
-type DrawingState
-    = NotDrawing
-    | Drawing Position
+updateContext : (Context -> Context) -> Model -> Model
+updateContext updt model =
+    case model of
+        NotFound context ->
+            NotFound (updt context)
 
+        Redirect url context ->
+            Redirect url (updt context)
 
-type alias Page =
-    { image : Image
-    , translations : List Translation
-    }
+        Home context ->
+            Home (updt context)
 
+        Login subModel ->
+            Login { subModel | context = updt subModel.context }
 
-type alias Translation =
-    { text : String, blob : List (List Position) }
-
-
-emptyTranslation : Translation
-emptyTranslation =
-    Translation "" []
-
-
-mapCurrent : (a -> a) -> ZipList a -> ZipList a
-mapCurrent f ziplist =
-    ZipList.replace (f (ZipList.current ziplist)) ziplist
-
-
-insertTranslation : Translation -> Page -> Page
-insertTranslation translation page =
-    { page | translations = translation :: page.translations }
-
-
-type Mode
-    = Read
-    | Edit
+        Translation subModel ->
+            Translation { subModel | context = updt subModel.context }
 
 
 
@@ -105,114 +108,108 @@ type Mode
 
 
 type Msg
-    = StartedDrawing
-    | Drew Bool Position
-    | StoppedDrawing
-    | InputText String
-    | ClickedResetBlob
-    | ClickedNextBlob
-    | ClickedPrevPage
-    | ClickedNextPage
-    | ClickedTranslation Translation
-    | ToggledMode Mode
+    = GotFirstWindowWidth Int
+    | GotWindowWidth Int
+    | GotNewCred (Maybe Cred)
     | ChangedUrl Url
-    | ClickedLink UrlRequest
+    | ClickedLink Browser.UrlRequest
+    | ClickedLogOut
+    | GotLoginMsg Login.Msg
+    | GotTranslationMsg Translation.Msg
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
-    case msg of
-        StartedDrawing ->
-            ( { model | drawingState = Drawing { x = 0, y = 0 } }, Cmd.none )
+    case ( msg, model ) of
+        ( GotFirstWindowWidth width, Redirect url context ) ->
+            changeRouteTo (Route.fromUrl url)
+                (Redirect url { context | windowWidth = width })
 
-        Drew down pos ->
-            ( { model
-                | drawingState = Drawing pos
-                , positions = pos :: model.positions
-              }
+        ( GotWindowWidth width, _ ) ->
+            ( updateContext (\context -> { context | windowWidth = width }) model
             , Cmd.none
             )
 
-        StoppedDrawing ->
-            let
-                translation =
-                    model.translation
-            in
-            ( { model
-                | drawingState = NotDrawing
-                , positions = []
-                , translation =
-                    { translation | blob = model.positions :: translation.blob }
-              }
+        ( GotNewCred cred, _ ) ->
+            ( updateContext
+                (\context ->
+                    { context | cred = cred }
+                )
+                model
             , Cmd.none
             )
 
-        InputText text ->
-            let
-                translation =
-                    model.translation
-            in
-            ( { model
-                | translation =
-                    { translation | text = text }
-              }
-            , Cmd.none
+        ( ChangedUrl url, _ ) ->
+            changeRouteTo (Route.fromUrl url) model
+
+        ( ClickedLink urlRequest, _ ) ->
+            case urlRequest of
+                Browser.Internal url ->
+                    ( model
+                    , Nav.pushUrl
+                        (getKey model)
+                        (Url.toString url)
+                    )
+
+                Browser.External href ->
+                    ( model, Nav.load href )
+
+        ( ClickedLogOut, _ ) ->
+            ( updateContext (\context -> { context | cred = Nothing }) model
+            , Cmd.batch
+                [ Api.logout
+                , Route.replaceUrl (getKey model) Route.Home
+                ]
             )
 
-        ClickedResetBlob ->
-            let
-                translation =
-                    model.translation
-            in
-            ( { model
-                | translation =
-                    { translation | blob = [] }
-                , positions = []
-              }
-            , Cmd.none
-            )
+        ( GotLoginMsg subMsg, Login subModel ) ->
+            Login.update subMsg subModel
+                |> updateWith Login GotLoginMsg
 
-        ClickedNextBlob ->
-            ( { model
-                | translation = emptyTranslation
-                , positions = []
-                , pages = mapCurrent (insertTranslation model.translation) model.pages
-              }
-            , Cmd.none
-            )
+        ( GotTranslationMsg subMsg, Translation subModel ) ->
+            Translation.update subMsg subModel
+                |> updateWith Translation GotTranslationMsg
 
-        ClickedPrevPage ->
-            ( { model
-                | translation = emptyTranslation
-                , positions = []
-                , pages =
-                    model.pages
-                        |> mapCurrent (insertTranslation model.translation)
-                        |> ZipList.backward
-              }
-            , Cmd.none
-            )
-
-        ClickedNextPage ->
-            ( { model
-                | translation = emptyTranslation
-                , positions = []
-                , pages =
-                    model.pages
-                        |> mapCurrent (insertTranslation model.translation)
-                        |> ZipList.forward
-              }
-            , Cmd.none
-            )
-
-        ClickedTranslation translation ->
-            ( { model | translation = translation }, Cmd.none )
-
-        ToggledMode mode ->
-            ( { model | mode = mode }, Cmd.none )
-
-        _ ->
+        ( _, _ ) ->
             ( model, Cmd.none )
+
+
+updateWith :
+    (subModel -> Model)
+    -> (subMsg -> Msg)
+    -> ( subModel, Cmd subMsg )
+    -> ( Model, Cmd Msg )
+updateWith toModel toMsg ( subModel, subCmd ) =
+    ( toModel subModel, Cmd.map toMsg subCmd )
+
+
+changeRouteTo : Maybe Route -> Model -> ( Model, Cmd Msg )
+changeRouteTo maybeRoute model =
+    let
+        context =
+            getContext model
+    in
+    case context.cred of
+        Nothing ->
+            context
+                |> Login.init maybeRoute
+                |> updateWith Login GotLoginMsg
+
+        Just cred ->
+            case maybeRoute of
+                Nothing ->
+                    ( NotFound context, Cmd.none )
+
+                Just Route.Home ->
+                    ( Home context, Cmd.none )
+
+                Just Route.Login ->
+                    Login.init (Just Route.Home) context
+                        |> updateWith Login GotLoginMsg
+
+                Just Route.Translation ->
+                    Translation.init context
+                        |> updateWith Translation GotTranslationMsg
 
 
 
@@ -221,230 +218,59 @@ update msg model =
 
 subscriptions : Model -> Sub Msg
 subscriptions model =
-    case model.drawingState of
-        Drawing _ ->
-            Sub.batch
-                [ Events.onMouseMove (Decode.map2 Drew decodeButtons decodePosition)
-                , Events.onMouseUp (Decode.succeed StoppedDrawing)
-                ]
+    let
+        context =
+            getContext model
 
-        NotDrawing ->
-            Sub.none
+        common =
+            [ Events.onResize (\w h -> GotWindowWidth w)
+            , Api.storeChanged GotNewCred
+            ]
+
+        special =
+            case model of
+                Translation subModel ->
+                    [ Sub.map GotTranslationMsg (Translation.subscriptions subModel) ]
+
+                Login subModel ->
+                    [ Sub.map GotLoginMsg (Login.subscriptions subModel) ]
+
+                _ ->
+                    []
+    in
+    Sub.batch (common ++ special)
 
 
-decodeButtons : Decoder Bool
-decodeButtons =
-    Decode.field "buttons" (Decode.map (\buttons -> buttons == 1) Decode.int)
 
-
-decodePosition : Decoder Position
-decodePosition =
-    Decode.map2 Position
-        (Decode.field "pageX" Decode.float)
-        (Decode.field "pageY" Decode.float)
-
-
-
--- (D.at ["currentTarget","defaultView","innerWidth"] D.float)
 -- VIEW
 
 
-view : Model -> Document Msg
+view : Model -> { title : String, body : List (Html Msg) }
 view model =
-    { title = "CDC Book Translation"
-    , body =
-        El.column [ El.spacing 5 ]
-            [ viewImage (ZipList.current model.pages) model.positions model.translation model.mode
-            , viewMode model.mode
-            , case model.mode of
-                Edit ->
-                    viewEditMode model.translation
-
-                Read ->
-                    viewReadMode model.translation
-            ]
-            |> El.layout []
-            |> (\x -> [ x ])
-    }
-
-
-viewImage : Page -> List Position -> Translation -> Mode -> Element Msg
-viewImage { image, translations } positions translation mode =
     let
-        paths =
-            viewPath mode yellow (Translation "" [ positions ])
-                ++ viewPath mode yellow translation
-                ++ List.concatMap (viewPath mode grey) translations
+        viewPageWith toMsg { title, body } =
+            { title = title
+            , body =
+                El.column [ El.width (El.px (getContext model |> .windowWidth)) ]
+                    [ --Common.viewHeader (getContext model) ClickedLogOut
+                      El.map toMsg body
+                    ]
+                    |> El.layout [ Font.size 14 ]
+                    |> (\b -> [ b ])
+            }
     in
-    Svg.svg
-        [ A.width "800"
-        , A.height "600"
-        , A.viewBox "0 0 800 600"
-        , Svg.Events.on "mousedown"
-            (if mode == Edit then
-                Decode.succeed StartedDrawing
+    case model of
+        NotFound _ ->
+            viewPageWith never NotFound.view
 
-             else
-                Decode.fail "read mode"
-            )
-        ]
-        (Svg.image [ A.width "800", A.height "600", A.xlinkHref image ] []
-            :: paths
-        )
-        |> El.html
+        Redirect _ _ ->
+            viewPageWith never Blank.view
 
+        Home _ ->
+            viewPageWith never Home.view
 
-yellow : String
-yellow =
-    "#FBEC5D40"
+        Login subModel ->
+            viewPageWith GotLoginMsg (Login.view subModel)
 
-
-grey : String
-grey =
-    "#0E0E0E40"
-
-
-viewPath : Mode -> String -> Translation -> List (Svg Msg)
-viewPath mode color translation =
-    let
-        toString { x, y } =
-            String.fromFloat x ++ "," ++ String.fromFloat y
-
-        toSvg positions =
-            positions
-                |> List.map toString
-                |> String.join " "
-                |> (\pos ->
-                        Svg.polyline
-                            [ A.points pos
-                            , A.fill "none"
-                            , A.stroke color
-                            , A.strokeWidth "35"
-                            , A.strokeLinecap "round"
-                            , Svg.Events.onClick (ClickedTranslation translation)
-                            ]
-                            []
-                   )
-    in
-    List.map toSvg translation.blob
-
-
-viewMode : Mode -> Element Msg
-viewMode mode =
-    let
-        selection text state =
-            case state of
-                Idle ->
-                    El.el [ El.padding 5 ] (El.text text)
-
-                Focused ->
-                    El.el [ El.padding 5 ] (El.text text)
-
-                Selected ->
-                    El.el
-                        [ Background.color (El.rgb255 255 255 255)
-                        , Border.rounded 3
-                        , El.padding 5
-                        ]
-                        (El.text text)
-    in
-    Input.radioRow
-        [ El.padding 5
-        , El.spacing 20
-        , Background.color (El.rgb255 200 200 200)
-        , Border.rounded 5
-        ]
-        { onChange = ToggledMode
-        , selected = Just mode
-        , label = Input.labelHidden "View mode"
-        , options =
-            [ Input.optionWith Read (selection "Read")
-            , Input.optionWith Edit (selection "Edit")
-            ]
-        }
-        |> El.el [ El.centerX ]
-
-
-viewEditText : Translation -> Element Msg
-viewEditText translation =
-    Input.multiline []
-        { onChange = InputText
-        , text = translation.text
-        , placeholder = Nothing
-        , label = Input.labelAbove [] (El.text "Draw a blob over some text and translate it below")
-        , spellcheck = True
-        }
-
-
-label : String -> Element msg
-label text =
-    El.text text
-        |> El.el [ Background.color (El.rgb255 200 200 200), El.padding 5 ]
-
-
-prevPageButton : Element Msg
-prevPageButton =
-    Input.button []
-        { onPress = Just ClickedPrevPage, label = label "Previous page" }
-
-
-nextPageButton : Element Msg
-nextPageButton =
-    Input.button []
-        { onPress = Just ClickedNextPage, label = label "Next page" }
-
-
-viewEditButtons : Element Msg
-viewEditButtons =
-    let
-        resetButton =
-            Input.button []
-                { onPress = Just ClickedResetBlob, label = label "Reset blob" }
-
-        nextBlobButton =
-            Input.button []
-                { onPress = Just ClickedNextBlob, label = label "Save blob" }
-    in
-    El.column [ El.spacing 5 ]
-        [ El.row [ El.spacing 5 ] [ resetButton, nextBlobButton ]
-        , El.row [ El.spacing 5 ] [ prevPageButton, nextPageButton ]
-        ]
-
-
-viewReadButtons : Element Msg
-viewReadButtons =
-    El.row [ El.spacing 5 ] [ prevPageButton, nextPageButton ]
-
-
-viewEditMode : Translation -> Element Msg
-viewEditMode translation =
-    El.column []
-        [ viewEditText translation
-        , viewEditButtons
-        ]
-
-
-viewReadMode : Translation -> Element Msg
-viewReadMode translation =
-    El.column []
-        [ translation.text
-            |> El.text
-            |> El.el
-                [ El.padding 5
-                , Border.color (El.rgb255 200 200 200)
-                , Border.width 1
-                ]
-        , viewReadButtons
-        ]
-
-
-
--- TEST DATA
-
-
-testPages : ZipList Page
-testPages =
-    ZipList.new
-        (Page "http://localhost:4000/images/IMG_7667_blur.jpg" [])
-        [ Page "http://localhost:4000/images/IMG_7668_blur.jpg" []
-        ]
+        Translation subModel ->
+            viewPageWith GotTranslationMsg (Translation.view subModel)

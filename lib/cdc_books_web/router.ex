@@ -17,6 +17,9 @@ defmodule CdcBooksWeb.Router do
     pipe_through :browser
 
     get "/", PageController, :index
+
+    # All URLs get treated on the Elm side
+    get "/*path", PageController, :index
   end
 
   # Other scopes may use custom stacks.
