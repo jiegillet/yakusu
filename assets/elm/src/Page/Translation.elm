@@ -3,7 +3,6 @@ module Page.Translation exposing (Model, Msg, init, subscriptions, update, view)
 import Array exposing (Array)
 import Browser exposing (Document, UrlRequest)
 import Browser.Events as Events
-import Browser.Navigation as Nav exposing (Key)
 import Common exposing (Context)
 import Element as El exposing (Element)
 import Element.Background as Background

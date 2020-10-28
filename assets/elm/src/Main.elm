@@ -16,7 +16,9 @@ import Element.Input as Input exposing (OptionState(..))
 import Html exposing (Html)
 import Json.Decode as Decode exposing (Decoder)
 import Json.Encode exposing (Value)
+import Page.AddBook as AddBook
 import Page.Blank as Blank
+import Page.Books as Books
 import Page.Home as Home
 import Page.Login as Login
 import Page.NotFound as NotFound
@@ -46,6 +48,8 @@ type Model
     = NotFound Context
     | Redirect Url Context
     | Home Context
+    | Books Books.Model
+    | AddBook AddBook.Model
     | Login Login.Model
     | Translation Translation.Model
 
@@ -72,6 +76,12 @@ getContext model =
         Home context ->
             context
 
+        Books { context } ->
+            context
+
+        AddBook { context } ->
+            context
+
         Login { context } ->
             context
 
@@ -85,22 +95,28 @@ getKey =
 
 
 updateContext : (Context -> Context) -> Model -> Model
-updateContext updt model =
+updateContext updtateContext model =
     case model of
         NotFound context ->
-            NotFound (updt context)
+            NotFound (updtateContext context)
 
         Redirect url context ->
-            Redirect url (updt context)
+            Redirect url (updtateContext context)
 
         Home context ->
-            Home (updt context)
+            Home (updtateContext context)
+
+        Books subModel ->
+            Books { subModel | context = updtateContext subModel.context }
+
+        AddBook subModel ->
+            AddBook { subModel | context = updtateContext subModel.context }
 
         Login subModel ->
-            Login { subModel | context = updt subModel.context }
+            Login { subModel | context = updtateContext subModel.context }
 
         Translation subModel ->
-            Translation { subModel | context = updt subModel.context }
+            Translation { subModel | context = updtateContext subModel.context }
 
 
 
@@ -115,6 +131,8 @@ type Msg
     | ClickedLink Browser.UrlRequest
     | ClickedLogOut
     | GotLoginMsg Login.Msg
+    | GotBooksMsg Books.Msg
+    | GotAddBookMsg AddBook.Msg
     | GotTranslationMsg Translation.Msg
 
 
@@ -162,6 +180,14 @@ update msg model =
                 ]
             )
 
+        ( GotBooksMsg subMsg, Books subModel ) ->
+            Books.update subMsg subModel
+                |> updateWith Books GotBooksMsg
+
+        ( GotAddBookMsg subMsg, AddBook subModel ) ->
+            AddBook.update subMsg subModel
+                |> updateWith AddBook GotAddBookMsg
+
         ( GotLoginMsg subMsg, Login subModel ) ->
             Login.update subMsg subModel
                 |> updateWith Login GotLoginMsg
@@ -202,6 +228,14 @@ changeRouteTo maybeRoute model =
 
                 Just Route.Home ->
                     ( Home context, Cmd.none )
+
+                Just Route.Books ->
+                    Books.init context
+                        |> updateWith Books GotBooksMsg
+
+                Just Route.AddBook ->
+                    AddBook.init context
+                        |> updateWith AddBook GotAddBookMsg
 
                 Just Route.Login ->
                     Login.init (Just Route.Home) context
@@ -268,6 +302,12 @@ view model =
 
         Home _ ->
             viewPageWith never Home.view
+
+        Books subModel ->
+            viewPageWith never (Books.view subModel)
+
+        AddBook subModel ->
+            viewPageWith GotAddBookMsg (AddBook.view subModel)
 
         Login subModel ->
             viewPageWith GotLoginMsg (Login.view subModel)

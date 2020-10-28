@@ -12,6 +12,8 @@ type Route
     = Home
     | Login
     | Translation
+    | Books
+    | AddBook
 
 
 parser : Parser (Route -> a) a
@@ -20,6 +22,8 @@ parser =
         [ Parser.map Home Parser.top
         , Parser.map Login (s "login")
         , Parser.map Translation (s "translation")
+        , Parser.map Books (s "books")
+        , Parser.map AddBook (s "add")
         ]
 
 
@@ -34,6 +38,12 @@ routeToPieces route =
 
         Translation ->
             ( [ "translation" ], [] )
+
+        Books ->
+            ( [ "books" ], [] )
+
+        AddBook ->
+            ( [ "add" ], [] )
 
 
 fromUrl : Url -> Maybe Route
