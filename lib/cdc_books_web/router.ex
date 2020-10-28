@@ -13,19 +13,21 @@ defmodule CdcBooksWeb.Router do
     plug :accepts, ["json"]
   end
 
+  scope "/api", CdcBooksWeb do
+    pipe_through :api
+
+    resources "/books", Books.BookController, except: [:new, :edit]
+    resources "/pages", Books.PageController
+    resources "/translations", Books.TranslationController
+    resources "/positions", Books.PositionController
+  end
+
   scope "/", CdcBooksWeb do
     pipe_through :browser
-
-    get "/", PageController, :index
 
     # All URLs get treated on the Elm side
     get "/*path", PageController, :index
   end
-
-  # Other scopes may use custom stacks.
-  # scope "/api", CdcBooksWeb do
-  #   pipe_through :api
-  # end
 
   # Enables LiveDashboard only for development
   #
