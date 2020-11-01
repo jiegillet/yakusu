@@ -7,6 +7,9 @@ defmodule CdcBooks.Books.Page do
     field :image_type, :string
     field :book_id, :id
 
+#    belongs_to :books, CdcBooks.Books.Book
+#    has_many :translations, CdcBooks.Books.Translation
+
     timestamps()
   end
 

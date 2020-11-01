@@ -10,6 +10,8 @@ defmodule CdcBooks.Books.Book do
     field :translator, :string
     field :translates, :id
 
+#    has_many :pages, CdcBooks.Books.Page
+
     timestamps()
   end
 
@@ -17,6 +19,6 @@ defmodule CdcBooks.Books.Book do
   def changeset(book, attrs) do
     book
     |> cast(attrs, [:title, :author, :language, :notes, :translator])
-    |> validate_required([:title, :author, :language, :notes, :translator])
+    |> validate_required([:title, :author, :language])
   end
 end

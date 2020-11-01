@@ -3,8 +3,11 @@ defmodule CdcBooks.Books.Translation do
   import Ecto.Changeset
 
   schema "translations" do
-    field :translation, :string
+    field :text, :string
     field :page_id, :id
+
+#    belongs_to :translations, CdcBooks.Books.Translation
+#    has_many :positions, CdcBooks.Books.Position
 
     timestamps()
   end

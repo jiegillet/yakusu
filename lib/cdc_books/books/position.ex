@@ -5,7 +5,10 @@ defmodule CdcBooks.Books.Position do
   schema "positions" do
     field :x, :integer
     field :y, :integer
+    field :group, :integer
     field :translation_id, :id
+
+    #    belongs_to :translations, CdcBooks.Books.Translation
 
     timestamps()
   end

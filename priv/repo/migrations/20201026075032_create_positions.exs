@@ -5,6 +5,7 @@ defmodule CdcBooks.Repo.Migrations.CreatePositions do
     create table(:positions) do
       add :x, :integer
       add :y, :integer
+      add :group, :integer
       add :translation_id, references(:translations, on_delete: :nothing)
 
       timestamps()

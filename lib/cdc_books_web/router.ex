@@ -11,15 +11,28 @@ defmodule CdcBooksWeb.Router do
 
   pipeline :api do
     plug :accepts, ["json"]
+
+    plug Plug.Parsers,
+      parsers: [:urlencoded, :multipart, :json, Absinthe.Plug.Parser],
+      pass: ["*/*"],
+      json_decoder: Jason
+
+    plug Absinthe.Plug,
+      schema: CdcBooksWeb.Schema
   end
 
   scope "/api", CdcBooksWeb do
     pipe_through :api
 
-    resources "/books", Books.BookController, except: [:new, :edit]
-    resources "/pages", Books.PageController
-    resources "/translations", Books.TranslationController
-    resources "/positions", Books.PositionController
+    # resources "/books", Books.BookController, except: [:new, :edit]
+    # resources "/pages", Books.PageController
+    # resources "/translations", Books.TranslationController
+    # resources "/positions", Books.PositionController
+  end
+
+  scope "/api" do
+    forward "/graphiql", Absinthe.Plug.GraphiQL, schema: CdcBooksWeb.Schema
+    forward "/", Absinthe.Plug, schema: CdcBooksWeb.Schema
   end
 
   scope "/", CdcBooksWeb do
@@ -36,12 +49,12 @@ defmodule CdcBooksWeb.Router do
   # If your application does not have an admins-only section yet,
   # you can use Plug.BasicAuth to set up some basic authentication
   # as long as you are also using SSL (which you should anyway).
-  if Mix.env() in [:dev, :test] do
-    import Phoenix.LiveDashboard.Router
+  # if Mix.env() in [:dev, :test] do
+  # import Phoenix.LiveDashboard.Router
 
-    scope "/" do
-      pipe_through :browser
-      live_dashboard "/dashboard", metrics: CdcBooksWeb.Telemetry
-    end
-  end
+  # scope "/" do
+  #  pipe_through :browser
+  # live_dashboard "/dashboard", metrics: CdcBooksWeb.Telemetry
+  # end
+  # end
 end
