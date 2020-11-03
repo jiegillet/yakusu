@@ -5,6 +5,7 @@ defmodule CdcBooks.Repo.Migrations.CreatePages do
     create table(:pages) do
       add :image, :binary
       add :image_type, :string
+      add :page_number, :integer
       add :book_id, references(:books, on_delete: :nothing)
 
       timestamps()

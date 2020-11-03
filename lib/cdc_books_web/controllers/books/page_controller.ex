@@ -1,7 +1,7 @@
 defmodule CdcBooksWeb.Books.PageController do
   use CdcBooksWeb, :controller
 
-  alias CdcBooks.Books
+  alias CdcBooks.{Books, Repo}
   alias CdcBooks.Books.Page
 
   action_fallback CdcBooksWeb.FallbackController
@@ -39,5 +39,13 @@ defmodule CdcBooksWeb.Books.PageController do
     with {:ok, %Page{}} <- Books.delete_page(page) do
       send_resp(conn, :no_content, "")
     end
+  end
+
+  def image(conn, %{"id" => id}) do
+    page = Repo.get!(Page, id)
+
+    conn
+    |> put_resp_content_type(page.image_type, "utf-8")
+    |> send_resp(200, page.image)
   end
 end

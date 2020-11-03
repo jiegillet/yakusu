@@ -9,6 +9,10 @@ defmodule CdcBooksWeb.Router do
     plug :put_secure_browser_headers
   end
 
+  pipeline :rest_api do
+    plug :accepts, ["json"]
+  end
+
   pipeline :api do
     plug :accepts, ["json"]
 
@@ -21,11 +25,12 @@ defmodule CdcBooksWeb.Router do
       schema: CdcBooksWeb.Schema
   end
 
-  scope "/api", CdcBooksWeb do
-    pipe_through :api
+  scope "/api/rest", CdcBooksWeb do
+    pipe_through :rest_api
 
-    # resources "/books", Books.BookController, except: [:new, :edit]
-    # resources "/pages", Books.PageController
+    post "/books", Books.BookController, :new_book 
+    get "/pages/:id", Books.PageController, :image
+    # post "/pages", Books.PageController, :create
     # resources "/translations", Books.TranslationController
     # resources "/positions", Books.PositionController
   end
