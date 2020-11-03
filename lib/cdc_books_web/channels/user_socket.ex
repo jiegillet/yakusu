@@ -3,7 +3,6 @@ defmodule CdcBooksWeb.UserSocket do
 
   ## Channels
   # channel "room:*", CdcBooksWeb.RoomChannel
-  channel "book:*", CdcBooksWeb.BookChannel
 
   # Socket params are passed from the client and can
   # be used to verify and authenticate a user. After

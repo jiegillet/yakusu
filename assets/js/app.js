@@ -1,3 +1,8 @@
+// We need to import the CSS so that webpack will load it.
+// The MiniCssExtractPlugin is used to separate it out into
+// its own CSS file.
+import css from "../css/app.css"
+
 // webpack automatically bundles all modules in your
 // entry points. Those entry points can be configured
 // in "webpack.config.js".
@@ -5,16 +10,6 @@
 // Import dependencies
 //
 import "phoenix_html"
-
-import {Socket} from "phoenix"
-let socket = new Socket("/socket", {})
-socket.connect()
-
-// Now that you are connected, you can join channels with a topic:
-let channel = socket.channel("book:add", {})
-channel.join()
-  .receive("ok", resp => { console.log("Joined successfully", resp) })
-  .receive("error", resp => { console.log("Unable to join", resp) })
 
 // Elm
 
@@ -45,16 +40,3 @@ window.addEventListener("storage", function(event) {
     app.ports.onStoreChange.send(JSON.parse(event.newValue));
   }
 }, false);
-
-app.ports.broadcastBook.subscribe(function(book) {
-    console.log("Sending", book);
-    channel.push("broadcast_book", {book: book})
-        .receive("ok", payload => console.log("Response", payload))
-        .receive("error", (reasons) => console.log("create failed", reasons) )
-     .receive("timeout", () => console.log("Networking issue...") )
-
-});
-
-channel.on("broadcast_book", payload => {
-    console.log(payload);
-});
