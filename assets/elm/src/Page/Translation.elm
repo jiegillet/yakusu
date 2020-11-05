@@ -1,9 +1,9 @@
 module Page.Translation exposing (Model, Msg, init, subscriptions, update, view)
 
-import Array exposing (Array)
 import Browser exposing (Document, UrlRequest)
 import Browser.Events as Events
 import Common exposing (Context)
+import Dict exposing (Dict)
 import Element as El exposing (Element)
 import Element.Background as Background
 import Element.Border as Border
@@ -13,6 +13,7 @@ import Json.Decode as Decode exposing (Decoder)
 import Svg exposing (Svg)
 import Svg.Attributes as A
 import Svg.Events
+import Types exposing (Book, Page, Position, Translation)
 import ZipList exposing (ZipList)
 
 
@@ -43,32 +44,14 @@ init context =
     )
 
 
-type alias Image =
-    String
-
-
-type alias Position =
-    { x : Float, y : Float }
-
-
 type DrawingState
     = NotDrawing
     | Drawing Position
 
 
-type alias Page =
-    { image : Image
-    , translations : Array Translation
-    }
-
-
-type alias Translation =
-    { text : String, blob : List (List Position) }
-
-
 emptyTranslation : Translation
 emptyTranslation =
-    Translation "" []
+    Translation 0 "" Dict.empty
 
 
 mapCurrent : (a -> a) -> ZipList a -> ZipList a
@@ -78,7 +61,7 @@ mapCurrent f ziplist =
 
 insertTranslation : Translation -> Page -> Page
 insertTranslation translation page =
-    { page | translations = Array.push translation page.translations }
+    { page | translations = dictPush translation page.translations }
 
 
 type Mode
@@ -128,7 +111,7 @@ update msg model =
                 | drawingState = NotDrawing
                 , positions = []
                 , translation =
-                    { translation | blob = model.positions :: translation.blob }
+                    { translation | blob = dictPush model.positions translation.blob }
               }
             , Cmd.none
             )
@@ -152,7 +135,7 @@ update msg model =
             in
             ( { model
                 | translation =
-                    { translation | blob = [] }
+                    { translation | blob = Dict.empty }
                 , positions = []
               }
             , Cmd.none
@@ -226,12 +209,24 @@ decodeButtons =
 decodePosition : Decoder Position
 decodePosition =
     Decode.map2 Position
-        (Decode.field "pageX" Decode.float)
-        (Decode.field "pageY" Decode.float)
+        (Decode.field "pageX" Decode.int)
+        (Decode.field "pageY" Decode.int)
 
 
 
 -- (D.at ["currentTarget","defaultView","innerWidth"] D.float)
+
+
+dictPush : a -> Dict Int a -> Dict Int a
+dictPush a dict =
+    Dict.keys dict
+        |> List.reverse
+        |> List.head
+        |> Maybe.withDefault 1
+        |> (\key -> Dict.insert (key + 1) a dict)
+
+
+
 -- VIEW
 
 
@@ -256,9 +251,9 @@ viewImage : Page -> List Position -> Translation -> Mode -> Element Msg
 viewImage { image, translations } positions translation mode =
     let
         paths =
-            viewPath mode yellow (Translation "" [ positions ])
+            viewPath mode yellow (Translation 0 "" (Dict.singleton 1 positions))
                 ++ viewPath mode yellow translation
-                ++ List.concatMap (viewPath mode grey) (Array.toList translations)
+                ++ List.concatMap (viewPath mode grey) (Dict.values translations)
     in
     Svg.svg
         [ A.width "800"
@@ -292,7 +287,7 @@ viewPath : Mode -> String -> Translation -> List (Svg Msg)
 viewPath mode color translation =
     let
         toString { x, y } =
-            String.fromFloat x ++ "," ++ String.fromFloat y
+            String.fromInt x ++ "," ++ String.fromInt y
 
         toSvg positions =
             positions
@@ -310,7 +305,9 @@ viewPath mode color translation =
                             []
                    )
     in
-    List.map toSvg translation.blob
+    translation.blob
+        |> Dict.values
+        |> List.map toSvg
 
 
 viewMode : Mode -> Element Msg
@@ -429,6 +426,6 @@ viewReadMode translation =
 testPages : ZipList Page
 testPages =
     ZipList.new
-        (Page "http://localhost:4000/images/IMG_7667_blur.jpg" Array.empty)
-        [ Page "http://localhost:4000/images/IMG_7668_blur.jpg" Array.empty
+        (Page 1 "http://localhost:4000/images/IMG_7667_blur.jpg" "" Dict.empty)
+        [ Page 2 "http://localhost:4000/images/IMG_7668_blur.jpg" "" Dict.empty
         ]

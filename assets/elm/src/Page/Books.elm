@@ -3,6 +3,7 @@ module Page.Books exposing (..)
 import Common exposing (Context)
 import Element as El exposing (Element)
 import Element.Input as Input
+import Types exposing (Book)
 
 
 
@@ -22,17 +23,6 @@ init context =
       }
     , Cmd.none
     )
-
-
-type Book
-    = Book
-        { title : String
-        , author : String
-        , language : String
-        , translates : Maybe Book
-        , notes : String
-        , translator : String
-        }
 
 
 
@@ -62,7 +52,7 @@ view model =
 viewBooks : List Book -> Element msg
 viewBooks books =
     let
-        viewBook (Book { title }) =
+        viewBook { title } =
             El.text title
     in
     books

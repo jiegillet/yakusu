@@ -14,17 +14,35 @@ import Http
 import Json.Decode as Decode exposing (Decoder)
 import Json.Encode as Encode exposing (Value)
 import Task
+import Types exposing (Book)
 
 
 
--- TYPES
+-- _TYPES
 
 
 type alias Model =
     { context : Context
-    , book : Book
+    , book : Form
     , hover : Bool
     , previews : List String
+    }
+
+
+type alias Form =
+    { title : String
+    , author : String
+    , language : String
+    , images : List File
+    }
+
+
+emptyBook : Form
+emptyBook =
+    { title = ""
+    , author = ""
+    , language = ""
+    , images = []
     }
 
 
@@ -39,40 +57,15 @@ init context =
     )
 
 
-type Book
-    = Book
-        { title : String
-        , author : String
-        , language : String
-        , translates : Maybe Book
-        , notes : String
-        , translator : String
-        , images : List File
-        }
 
-
-emptyBook : Book
-emptyBook =
-    Book
-        { title = ""
-        , author = ""
-        , language = ""
-        , translates = Nothing
-        , notes = ""
-        , translator = ""
-        , images = []
-        }
-
-
-
--- UPDATE
+-- _UPDATE
 
 
 type Msg
     = InputTitle String
     | InputAuthor String
     | InputLanguage String
-    | ClickedSave Book
+    | ClickedSave Form
     | Pick
     | DragEnter
     | DragLeave
@@ -84,18 +77,18 @@ type Msg
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     let
-        (Book modelBook) =
+        modelBook =
             model.book
     in
     case msg of
         InputTitle title ->
-            ( { model | book = Book { modelBook | title = title } }, Cmd.none )
+            ( { model | book = { modelBook | title = title } }, Cmd.none )
 
         InputAuthor author ->
-            ( { model | book = Book { modelBook | author = author } }, Cmd.none )
+            ( { model | book = { modelBook | author = author } }, Cmd.none )
 
         InputLanguage language ->
-            ( { model | book = Book { modelBook | language = language } }, Cmd.none )
+            ( { model | book = { modelBook | language = language } }, Cmd.none )
 
         ClickedSave book ->
             ( model, postBook book )
@@ -116,7 +109,7 @@ update msg model =
             )
 
         GotFiles file files ->
-            ( { model | hover = False, book = Book { modelBook | images = file :: files } }
+            ( { model | hover = False, book = { modelBook | images = file :: files } }
             , Task.perform GotPreviews <|
                 Task.sequence <|
                     List.map File.toUrl (file :: files)
@@ -137,7 +130,7 @@ update msg model =
 
 
 
--- VIEW
+-- _VIEW
 
 
 view : Model -> { title : String, body : Element Msg }
@@ -154,8 +147,8 @@ gray =
     El.rgb255 200 200 200
 
 
-viewForm : Book -> List String -> Element Msg
-viewForm ((Book { title, author, language }) as book) previews =
+viewForm : Form -> List String -> Element Msg
+viewForm ({ title, author, language } as book) previews =
     let
         place text =
             text
@@ -242,11 +235,11 @@ hijack msg =
 
 
 
--- ENCODING
+-- _API
 
 
-encodeBook : Book -> Value
-encodeBook (Book { title, author, language }) =
+encodeBook : Form -> Value
+encodeBook { title, author, language } =
     Encode.object
         [ ( "title", Encode.string title )
         , ( "author", Encode.string author )
@@ -254,8 +247,8 @@ encodeBook (Book { title, author, language }) =
         ]
 
 
-postBook : Book -> Cmd Msg
-postBook ((Book { images }) as book) =
+postBook : Form -> Cmd Msg
+postBook ({ images } as book) =
     Http.post
         { url = "api/rest/books"
         , body =
