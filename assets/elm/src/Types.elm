@@ -2,45 +2,59 @@ module Types exposing (..)
 
 import Dict exposing (Dict)
 import File exposing (File)
+import GraphQLBook.Scalar exposing (Id(..))
+
+
+idToString : Id -> String
+idToString (Id id) =
+    id
+
+
+stringToId : String -> Id
+stringToId =
+    Id
 
 
 type alias Book =
-    { id : Int
+    { id : String
     , title : String
     , author : String
     , language : String
     , translations : List BookTranslation
-    , pages : Dict Int Page
+    , pages : Dict String Page
     }
 
 
 type alias BookTranslation =
-    { id : Int
+    { id : String
     , title : String
     , author : String
     , language : String
     , translator : String
     , notes : String
-    , translations : Dict Int Translation
+    , translations : Dict String Translation
     }
 
 
 type alias Page =
-    { id : Int
-    , image : String
+    { id : String
+    , imageType : String
+    , number : Int
     }
 
 
 type alias Translation =
-    { id : Maybe Int
-    , pageId : Int
+    { id : String
+    , pageId : String
     , text : String
     , blob : Dict Int (List Position)
     }
 
 
 type alias Position =
-    { x : Int
+    { id : Maybe String
+    , group : Int
+    , x : Int
     , y : Int
     }
 

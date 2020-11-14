@@ -11,15 +11,15 @@ defmodule CdcBooksWeb.Schema.BooksTypes do
     field :translator, :string
     field :notes, :string
 
-    field :pages, non_null(list_of(:page)) do
+    field :pages, non_null(list_of(non_null(:page))) do
       resolve(&Resolvers.Books.list_pages/3)
     end
 
-    field :book_translations, list_of(:book) do
+    field :book_translations, non_null(list_of(non_null(:book))) do
       resolve(&Resolvers.Books.list_book_translations/3)
     end
 
-    field :translations, list_of(:translation) do
+    field :translations, non_null(list_of(non_null(:translation))) do
       resolve(&Resolvers.Books.list_translations/3)
     end
   end
@@ -38,7 +38,7 @@ defmodule CdcBooksWeb.Schema.BooksTypes do
     field :book_id, non_null(:id)
     field :text, non_null(:string)
 
-    field :positions, non_null(list_of(:position)) do
+    field :positions, non_null(list_of(non_null(:position))) do
       resolve(&Resolvers.Books.list_positions/3)
     end
   end
@@ -49,7 +49,7 @@ defmodule CdcBooksWeb.Schema.BooksTypes do
     field :page_id, non_null(:id)
     field :book_id, non_null(:id)
     field :text, non_null(:string)
-    field :blob, list_of(:input_position)
+    field :blob, list_of(non_null(:input_position))
   end
 
   @desc "Positions for translation blobs drawn on page"

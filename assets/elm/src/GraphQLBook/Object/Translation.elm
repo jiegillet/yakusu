@@ -36,9 +36,9 @@ pageId =
 
 positions :
     SelectionSet decodesTo GraphQLBook.Object.Position
-    -> SelectionSet (List (Maybe decodesTo)) GraphQLBook.Object.Translation
+    -> SelectionSet (List decodesTo) GraphQLBook.Object.Translation
 positions object_ =
-    Object.selectionForCompositeField "positions" [] object_ (identity >> Decode.nullable >> Decode.list)
+    Object.selectionForCompositeField "positions" [] object_ (identity >> Decode.list)
 
 
 text : SelectionSet String GraphQLBook.Object.Translation

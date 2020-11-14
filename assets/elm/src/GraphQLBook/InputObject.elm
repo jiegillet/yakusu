@@ -80,7 +80,7 @@ type alias InputTranslationRequiredFields =
 
 
 type alias InputTranslationOptionalFields =
-    { blob : OptionalArgument (List (Maybe InputPosition))
+    { blob : OptionalArgument (List InputPosition)
     , id : OptionalArgument GraphQLBook.ScalarCodecs.Id
     }
 
@@ -88,7 +88,7 @@ type alias InputTranslationOptionalFields =
 {-| Type for the InputTranslation input object.
 -}
 type alias InputTranslation =
-    { blob : OptionalArgument (List (Maybe InputPosition))
+    { blob : OptionalArgument (List InputPosition)
     , bookId : GraphQLBook.ScalarCodecs.Id
     , id : OptionalArgument GraphQLBook.ScalarCodecs.Id
     , pageId : GraphQLBook.ScalarCodecs.Id
@@ -101,4 +101,4 @@ type alias InputTranslation =
 encodeInputTranslation : InputTranslation -> Value
 encodeInputTranslation input =
     Encode.maybeObject
-        [ ( "blob", (encodeInputPosition |> Encode.maybe |> Encode.list) |> Encode.optional input.blob ), ( "bookId", (GraphQLBook.ScalarCodecs.codecs |> GraphQLBook.Scalar.unwrapEncoder .codecId) input.bookId |> Just ), ( "id", (GraphQLBook.ScalarCodecs.codecs |> GraphQLBook.Scalar.unwrapEncoder .codecId) |> Encode.optional input.id ), ( "pageId", (GraphQLBook.ScalarCodecs.codecs |> GraphQLBook.Scalar.unwrapEncoder .codecId) input.pageId |> Just ), ( "text", Encode.string input.text |> Just ) ]
+        [ ( "blob", (encodeInputPosition |> Encode.list) |> Encode.optional input.blob ), ( "bookId", (GraphQLBook.ScalarCodecs.codecs |> GraphQLBook.Scalar.unwrapEncoder .codecId) input.bookId |> Just ), ( "id", (GraphQLBook.ScalarCodecs.codecs |> GraphQLBook.Scalar.unwrapEncoder .codecId) |> Encode.optional input.id ), ( "pageId", (GraphQLBook.ScalarCodecs.codecs |> GraphQLBook.Scalar.unwrapEncoder .codecId) input.pageId |> Just ), ( "text", Encode.string input.text |> Just ) ]

@@ -26,9 +26,9 @@ author =
 
 bookTranslations :
     SelectionSet decodesTo GraphQLBook.Object.Book
-    -> SelectionSet (Maybe (List (Maybe decodesTo))) GraphQLBook.Object.Book
+    -> SelectionSet (List decodesTo) GraphQLBook.Object.Book
 bookTranslations object_ =
-    Object.selectionForCompositeField "bookTranslations" [] object_ (identity >> Decode.nullable >> Decode.list >> Decode.nullable)
+    Object.selectionForCompositeField "bookTranslations" [] object_ (identity >> Decode.list)
 
 
 id : SelectionSet GraphQLBook.ScalarCodecs.Id GraphQLBook.Object.Book
@@ -48,9 +48,9 @@ notes =
 
 pages :
     SelectionSet decodesTo GraphQLBook.Object.Page
-    -> SelectionSet (List (Maybe decodesTo)) GraphQLBook.Object.Book
+    -> SelectionSet (List decodesTo) GraphQLBook.Object.Book
 pages object_ =
-    Object.selectionForCompositeField "pages" [] object_ (identity >> Decode.nullable >> Decode.list)
+    Object.selectionForCompositeField "pages" [] object_ (identity >> Decode.list)
 
 
 title : SelectionSet String GraphQLBook.Object.Book
@@ -60,9 +60,9 @@ title =
 
 translations :
     SelectionSet decodesTo GraphQLBook.Object.Translation
-    -> SelectionSet (Maybe (List (Maybe decodesTo))) GraphQLBook.Object.Book
+    -> SelectionSet (List decodesTo) GraphQLBook.Object.Book
 translations object_ =
-    Object.selectionForCompositeField "translations" [] object_ (identity >> Decode.nullable >> Decode.list >> Decode.nullable)
+    Object.selectionForCompositeField "translations" [] object_ (identity >> Decode.list)
 
 
 translator : SelectionSet (Maybe String) GraphQLBook.Object.Book

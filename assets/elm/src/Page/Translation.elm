@@ -45,6 +45,12 @@ type alias Page =
     }
 
 
+type alias Position =
+    { x : Int
+    , y : Int
+    }
+
+
 init : Context -> ( Model, Cmd Msg )
 init context =
     ( { context = context
