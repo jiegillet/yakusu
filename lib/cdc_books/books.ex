@@ -21,6 +21,20 @@ defmodule CdcBooks.Books do
     Repo.all(Book)
   end
 
+  def list_original_books() do
+    from(b in Book,
+      where: is_nil(b.original_id)
+    )
+    |> Repo.all()
+  end
+
+  def list_book_translations(%Book{} = book) do
+    from(b in Book,
+      where: b.original_id == ^book.id
+    )
+    |> Repo.all()
+  end
+
   @doc """
   Gets a single book.
 
@@ -115,6 +129,13 @@ defmodule CdcBooks.Books do
   """
   def list_pages do
     Repo.all(Page)
+  end
+
+  def list_pages(%Book{} = book) do
+    from(p in Page,
+      where: p.book_id == ^book.id
+    )
+    |> Repo.all()
   end
 
   @doc """
@@ -213,6 +234,20 @@ defmodule CdcBooks.Books do
     Repo.all(Translation)
   end
 
+  def list_translations(%Book{} = book) do
+    from(t in Translation,
+      where: t.book_id == ^book.id
+    )
+    |> Repo.all()
+  end
+
+  def list_translations(%Page{} = page) do
+    from(t in Translation,
+      where: t.page_id == ^page.id
+    )
+    |> Repo.all()
+  end
+
   @doc """
   Gets a single translation.
 
@@ -307,6 +342,13 @@ defmodule CdcBooks.Books do
   """
   def list_positions do
     Repo.all(Position)
+  end
+
+  def list_positions(%Translation{} = trans) do
+    from(p in Position,
+      where: p.translation_id == ^trans.id
+    )
+    |> Repo.all()
   end
 
   @doc """

@@ -5,12 +5,12 @@ defmodule CdcBooks.Books.Book do
   schema "books" do
     field :author, :string
     field :language, :string
-    field :notes, :string
     field :title, :string
     field :translator, :string
-    field :translates, :id
+    field :notes, :string
 
-#    has_many :pages, CdcBooks.Books.Page
+    belongs_to :original, CdcBooks.Books.Book 
+    has_many :pages, CdcBooks.Books.Page
 
     timestamps()
   end
@@ -18,7 +18,7 @@ defmodule CdcBooks.Books.Book do
   @doc false
   def changeset(book, attrs) do
     book
-    |> cast(attrs, [:title, :author, :language, :notes, :translator])
+    |> cast(attrs, [:title, :author, :language, :notes, :translator, :original_id])
     |> validate_required([:title, :author, :language])
   end
 end

@@ -8,11 +8,11 @@ defmodule CdcBooks.Repo.Migrations.CreateBooks do
       add :language, :string
       add :notes, :string
       add :translator, :string
-      add :translates, references(:books, on_delete: :nothing)
+      add :original_id, references(:books, on_delete: :nothing)
 
       timestamps()
     end
 
-    create index(:books, [:translates])
+    create index(:books, [:original_id])
   end
 end

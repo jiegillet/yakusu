@@ -13,7 +13,7 @@ import Json.Decode as Decode exposing (Decoder)
 import Svg exposing (Svg)
 import Svg.Attributes as A
 import Svg.Events
-import Types exposing (Book, Page, Position, Translation)
+import Types exposing (Book, Page, Position)
 import ZipList exposing (ZipList)
 
 
@@ -28,6 +28,20 @@ type alias Model =
     , translation : Translation
     , pages : ZipList Page
     , mode : Mode
+    }
+
+
+type alias Translation =
+    { text : String
+    , blob : Dict Int (List Position)
+    }
+
+
+type alias Page =
+    { id : Int
+    , image : String
+    , imageType : String
+    , translations : Dict Int Translation
     }
 
 
@@ -51,7 +65,7 @@ type DrawingState
 
 emptyTranslation : Translation
 emptyTranslation =
-    Translation 0 "" Dict.empty
+    Translation "" Dict.empty
 
 
 mapCurrent : (a -> a) -> ZipList a -> ZipList a
@@ -251,7 +265,7 @@ viewImage : Page -> List Position -> Translation -> Mode -> Element Msg
 viewImage { image, translations } positions translation mode =
     let
         paths =
-            viewPath mode yellow (Translation 0 "" (Dict.singleton 1 positions))
+            viewPath mode yellow (Translation "" (Dict.singleton 1 positions))
                 ++ viewPath mode yellow translation
                 ++ List.concatMap (viewPath mode grey) (Dict.values translations)
     in

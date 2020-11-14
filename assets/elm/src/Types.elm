@@ -2,8 +2,6 @@ module Types exposing (..)
 
 import Dict exposing (Dict)
 import File exposing (File)
-import Json.Decode as Decode exposing (Decoder)
-import Json.Encode as Encode exposing (Value)
 
 
 type alias Book =
@@ -23,24 +21,29 @@ type alias BookTranslation =
     , language : String
     , translator : String
     , notes : String
+    , translations : Dict Int Translation
     }
 
 
 type alias Page =
     { id : Int
     , image : String
-    , image_type : String
-    , translations : Dict Int Translation
     }
 
 
 type alias Translation =
-    { id : Int, text : String, blob : Dict Int (List Position) }
+    { id : Maybe Int
+    , pageId : Int
+    , text : String
+    , blob : Dict Int (List Position)
+    }
 
 
 type alias Position =
-    { x : Int, y : Int }
+    { x : Int
+    , y : Int
+    }
 
 
 
--- decoder
+-- GraphQL

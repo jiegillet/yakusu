@@ -6,9 +6,8 @@ defmodule CdcBooks.Books.Position do
     field :x, :integer
     field :y, :integer
     field :group, :integer
-    field :translation_id, :id
 
-    #    belongs_to :translations, CdcBooks.Books.Translation
+    belongs_to :translation, CdcBooks.Books.Translation
 
     timestamps()
   end
@@ -16,7 +15,7 @@ defmodule CdcBooks.Books.Position do
   @doc false
   def changeset(position, attrs) do
     position
-    |> cast(attrs, [:x, :y])
-    |> validate_required([:x, :y])
+    |> cast(attrs, [:x, :y, :group, :translation_id])
+    |> validate_required([:x, :y, :group, :translation_id])
   end
 end
