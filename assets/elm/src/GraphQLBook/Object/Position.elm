@@ -24,9 +24,9 @@ group =
     Object.selectionForField "Int" "group" [] Decode.int
 
 
-id : SelectionSet (Maybe GraphQLBook.ScalarCodecs.Id) GraphQLBook.Object.Position
+id : SelectionSet GraphQLBook.ScalarCodecs.Id GraphQLBook.Object.Position
 id =
-    Object.selectionForField "(Maybe ScalarCodecs.Id)" "id" [] (GraphQLBook.ScalarCodecs.codecs |> GraphQLBook.Scalar.unwrapCodecs |> .codecId |> .decoder |> Decode.nullable)
+    Object.selectionForField "ScalarCodecs.Id" "id" [] (GraphQLBook.ScalarCodecs.codecs |> GraphQLBook.Scalar.unwrapCodecs |> .codecId |> .decoder)
 
 
 x : SelectionSet Int GraphQLBook.Object.Position

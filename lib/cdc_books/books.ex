@@ -133,7 +133,7 @@ defmodule CdcBooks.Books do
 
   def list_pages(%Book{} = book) do
     from(p in Page,
-      where: p.book_id == ^book.id
+      where: p.book_id == ^book.id or p.book_id == ^book.original_id
     )
     |> Repo.all()
   end

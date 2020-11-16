@@ -8,34 +8,48 @@ import Element as El exposing (Element)
 import Element.Input as Input
 import GraphQLBook.Object
 import GraphQLBook.Object.Book as GBook
-import GraphQLBook.Object.Page as GPage
-import GraphQLBook.Object.Position as GPosition
-import GraphQLBook.Object.Translation as GTranslation
 import GraphQLBook.Query as Query
-import GraphQLBook.Scalar exposing (Id(..))
+import GraphQLBook.Scalar exposing (Id)
 import Graphql.Http exposing (Error)
 import Graphql.Operation exposing (RootQuery)
 import Graphql.SelectionSet as SelectionSet exposing (SelectionSet)
 import RemoteData exposing (RemoteData(..))
-import Types exposing (Book, BookTranslation, Page, Position, Translation)
 
 
 
 -- TYPES
 
 
+type alias Book =
+    { id : Id
+    , title : String
+    , author : String
+    , language : String
+    , translations : List BookTranslation
+    }
+
+
+type alias BookTranslation =
+    { id : Id
+    , title : String
+    , author : String
+    , language : String
+    , translator : String
+    }
+
+
 type alias Model =
     { context : Context
-    , books : List Book
+    , books : RemoteData (Error (List Book)) (List Book)
     }
 
 
 init : Context -> ( Model, Cmd Msg )
 init context =
     ( { context = context
-      , books = []
+      , books = Loading
       }
-    , makeRequest
+    , requestBooks
     )
 
 
@@ -44,14 +58,14 @@ init context =
 
 
 type Msg
-    = GotResponse (RemoteData (Error (List Book)) (List Book))
+    = GotBooks (RemoteData (Error (List Book)) (List Book))
 
 
 update : Msg -> Model -> ( Model, Cmd msg )
 update msg model =
     case msg of
-        GotResponse response ->
-            ( Debug.log (Debug.toString response) model, Cmd.none )
+        GotBooks response ->
+            ( { model | books = response }, Cmd.none )
 
 
 
@@ -62,7 +76,15 @@ view : Model -> { title : String, body : Element msg }
 view model =
     { title = "List of Books"
     , body =
-        viewBooks model.books
+        case model.books of
+            Success books ->
+                viewBooks books
+
+            Loading ->
+                El.text "Loading, please wait"
+
+            _ ->
+                El.text "Data could not be retrieved"
     }
 
 
@@ -88,61 +110,26 @@ query =
 
 bookSelection : SelectionSet Book GraphQLBook.Object.Book
 bookSelection =
-    SelectionSet.map6 Book
-        (SelectionSet.map Types.idToString GBook.id)
+    SelectionSet.map5 Book
+        GBook.id
         GBook.title
         GBook.author
         GBook.language
         (GBook.bookTranslations bookTranslationSelection)
-        (SelectionSet.map toDict (GBook.pages pageSelection))
 
 
 bookTranslationSelection : SelectionSet BookTranslation GraphQLBook.Object.Book
 bookTranslationSelection =
-    SelectionSet.map7 BookTranslation
-        (SelectionSet.map Types.idToString GBook.id)
+    SelectionSet.map5 BookTranslation
+        GBook.id
         GBook.title
         GBook.author
         GBook.language
-        (SelectionSet.map (Maybe.withDefault "") GBook.translator)
-        (SelectionSet.map (Maybe.withDefault "") GBook.notes)
-        (SelectionSet.map toDict (GBook.translations translationSelection))
+        (SelectionSet.withDefault "" GBook.translator)
 
 
-pageSelection : SelectionSet Page GraphQLBook.Object.Page
-pageSelection =
-    SelectionSet.map3 Page
-        (SelectionSet.map Types.idToString GPage.id)
-        GPage.imageType
-        GPage.pageNumber
-
-
-translationSelection : SelectionSet Translation GraphQLBook.Object.Translation
-translationSelection =
-    SelectionSet.map4 Translation
-        (SelectionSet.map Types.idToString GTranslation.id)
-        (SelectionSet.map Types.idToString GTranslation.pageId)
-        GTranslation.text
-        (SelectionSet.map (Dict.groupBy .group) (GTranslation.positions positionSelection))
-
-
-positionSelection : SelectionSet Position GraphQLBook.Object.Position
-positionSelection =
-    SelectionSet.map4 Position
-        (SelectionSet.map (Maybe.map Types.idToString) GPosition.id)
-        GPosition.group
-        GPosition.x
-        GPosition.y
-
-
-toDict : List { a | id : comparable } -> Dict comparable { a | id : comparable }
-toDict =
-    List.map (\({ id } as a) -> ( id, a ))
-        >> Dict.fromList
-
-
-makeRequest : Cmd Msg
-makeRequest =
+requestBooks : Cmd Msg
+requestBooks =
     query
         |> Graphql.Http.queryRequest "http://localhost:4000/api"
-        |> Graphql.Http.send (RemoteData.fromResult >> GotResponse)
+        |> Graphql.Http.send (RemoteData.fromResult >> GotBooks)

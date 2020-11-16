@@ -56,14 +56,17 @@ defmodule CdcBooksWeb.Books.BookController do
       images
       |> Enum.with_index(1)
       |> Enum.map(fn {%Plug.Upload{content_type: image_type, path: path}, page_number} ->
-        {:ok, image} = File.read(path)
+        {:ok, image} =
+          path
+          |> CdcBooks.Mogrify.blur_image()
+          |> File.read()
 
         {:ok, _page} =
           Books.create_page(%{
             page_number: page_number,
             book_id: book_id,
             image: image,
-            image_type: image_type
+            image_type: "image/jpg"
           })
       end)
 
