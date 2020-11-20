@@ -20,7 +20,7 @@ defmodule CdcBooksWeb.Schema do
 
   mutation do
     @desc "Create new book translation"
-    field :create_book, type: :book do
+    field :create_book, type: non_null(:book) do
       arg(:id, :id)
       arg(:original_id, non_null(:id))
       arg(:title, non_null(:string))

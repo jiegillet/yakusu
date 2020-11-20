@@ -103,8 +103,8 @@ viewBooks books =
 -- GRAPHQL
 
 
-query : SelectionSet (List Book) RootQuery
-query =
+booksQuery : SelectionSet (List Book) RootQuery
+booksQuery =
     Query.books bookSelection
 
 
@@ -130,6 +130,6 @@ bookTranslationSelection =
 
 requestBooks : Cmd Msg
 requestBooks =
-    query
+    booksQuery
         |> Graphql.Http.queryRequest "http://localhost:4000/api"
         |> Graphql.Http.send (RemoteData.fromResult >> GotBooks)

@@ -49,7 +49,7 @@ defmodule CdcBooksWeb.Schema.BooksTypes do
     field :page_id, non_null(:id)
     field :book_id, non_null(:id)
     field :text, non_null(:string)
-    field :blob, list_of(non_null(:input_position))
+    field :blob, non_null(list_of(non_null(:input_position)))
   end
 
   @desc "Positions for translation blobs drawn on page"

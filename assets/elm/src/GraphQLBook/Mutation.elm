@@ -40,7 +40,7 @@ createBook :
     (CreateBookOptionalArguments -> CreateBookOptionalArguments)
     -> CreateBookRequiredArguments
     -> SelectionSet decodesTo GraphQLBook.Object.Book
-    -> SelectionSet (Maybe decodesTo) RootMutation
+    -> SelectionSet decodesTo RootMutation
 createBook fillInOptionals requiredArgs object_ =
     let
         filledInOptionals =
@@ -50,7 +50,7 @@ createBook fillInOptionals requiredArgs object_ =
             [ Argument.optional "id" filledInOptionals.id (GraphQLBook.ScalarCodecs.codecs |> GraphQLBook.Scalar.unwrapEncoder .codecId), Argument.optional "notes" filledInOptionals.notes Encode.string ]
                 |> List.filterMap identity
     in
-    Object.selectionForCompositeField "createBook" (optionalArgs ++ [ Argument.required "author" requiredArgs.author Encode.string, Argument.required "language" requiredArgs.language Encode.string, Argument.required "originalId" requiredArgs.originalId (GraphQLBook.ScalarCodecs.codecs |> GraphQLBook.Scalar.unwrapEncoder .codecId), Argument.required "title" requiredArgs.title Encode.string, Argument.required "translator" requiredArgs.translator Encode.string ]) object_ (identity >> Decode.nullable)
+    Object.selectionForCompositeField "createBook" (optionalArgs ++ [ Argument.required "author" requiredArgs.author Encode.string, Argument.required "language" requiredArgs.language Encode.string, Argument.required "originalId" requiredArgs.originalId (GraphQLBook.ScalarCodecs.codecs |> GraphQLBook.Scalar.unwrapEncoder .codecId), Argument.required "title" requiredArgs.title Encode.string, Argument.required "translator" requiredArgs.translator Encode.string ]) object_ identity
 
 
 type alias CreateTranslationRequiredArguments =

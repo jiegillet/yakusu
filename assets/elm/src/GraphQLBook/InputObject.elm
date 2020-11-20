@@ -67,28 +67,27 @@ buildInputTranslation required fillOptionals =
     let
         optionals =
             fillOptionals
-                { blob = Absent, id = Absent }
+                { id = Absent }
     in
-    { blob = optionals.blob, bookId = required.bookId, id = optionals.id, pageId = required.pageId, text = required.text }
+    { blob = required.blob, bookId = required.bookId, id = optionals.id, pageId = required.pageId, text = required.text }
 
 
 type alias InputTranslationRequiredFields =
-    { bookId : GraphQLBook.ScalarCodecs.Id
+    { blob : List InputPosition
+    , bookId : GraphQLBook.ScalarCodecs.Id
     , pageId : GraphQLBook.ScalarCodecs.Id
     , text : String
     }
 
 
 type alias InputTranslationOptionalFields =
-    { blob : OptionalArgument (List InputPosition)
-    , id : OptionalArgument GraphQLBook.ScalarCodecs.Id
-    }
+    { id : OptionalArgument GraphQLBook.ScalarCodecs.Id }
 
 
 {-| Type for the InputTranslation input object.
 -}
 type alias InputTranslation =
-    { blob : OptionalArgument (List InputPosition)
+    { blob : List InputPosition
     , bookId : GraphQLBook.ScalarCodecs.Id
     , id : OptionalArgument GraphQLBook.ScalarCodecs.Id
     , pageId : GraphQLBook.ScalarCodecs.Id
@@ -101,4 +100,4 @@ type alias InputTranslation =
 encodeInputTranslation : InputTranslation -> Value
 encodeInputTranslation input =
     Encode.maybeObject
-        [ ( "blob", (encodeInputPosition |> Encode.list) |> Encode.optional input.blob ), ( "bookId", (GraphQLBook.ScalarCodecs.codecs |> GraphQLBook.Scalar.unwrapEncoder .codecId) input.bookId |> Just ), ( "id", (GraphQLBook.ScalarCodecs.codecs |> GraphQLBook.Scalar.unwrapEncoder .codecId) |> Encode.optional input.id ), ( "pageId", (GraphQLBook.ScalarCodecs.codecs |> GraphQLBook.Scalar.unwrapEncoder .codecId) input.pageId |> Just ), ( "text", Encode.string input.text |> Just ) ]
+        [ ( "blob", (encodeInputPosition |> Encode.list) input.blob |> Just ), ( "bookId", (GraphQLBook.ScalarCodecs.codecs |> GraphQLBook.Scalar.unwrapEncoder .codecId) input.bookId |> Just ), ( "id", (GraphQLBook.ScalarCodecs.codecs |> GraphQLBook.Scalar.unwrapEncoder .codecId) |> Encode.optional input.id ), ( "pageId", (GraphQLBook.ScalarCodecs.codecs |> GraphQLBook.Scalar.unwrapEncoder .codecId) input.pageId |> Just ), ( "text", Encode.string input.text |> Just ) ]
