@@ -28,11 +28,10 @@ defmodule CdcBooksWeb.Router do
   scope "/api/rest", CdcBooksWeb do
     pipe_through :rest_api
 
-    post "/books", Books.BookController, :new_book 
+    post "/books", Books.BookController, :new_book
     get "/pages/:id", Books.PageController, :image
     # post "/pages", Books.PageController, :create
     # resources "/translations", Books.TranslationController
-    # resources "/positions", Books.PositionController
   end
 
   scope "/api" do

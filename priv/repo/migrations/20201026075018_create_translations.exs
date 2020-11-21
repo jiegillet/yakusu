@@ -3,7 +3,8 @@ defmodule CdcBooks.Repo.Migrations.CreateTranslations do
 
   def change do
     create table(:translations) do
-      add :text, :string
+      add :text, :text
+      add :path, :text
       add :page_id, references(:pages, on_delete: :nothing)
       add :book_id, references(:books, on_delete: :nothing)
 

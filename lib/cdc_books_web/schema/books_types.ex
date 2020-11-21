@@ -37,10 +37,7 @@ defmodule CdcBooksWeb.Schema.BooksTypes do
     field :page_id, non_null(:id)
     field :book_id, non_null(:id)
     field :text, non_null(:string)
-
-    field :positions, non_null(list_of(non_null(:position))) do
-      resolve(&Resolvers.Books.list_positions/3)
-    end
+    field :path, non_null(:string)
   end
 
   @desc "Input type for translation"
@@ -49,22 +46,7 @@ defmodule CdcBooksWeb.Schema.BooksTypes do
     field :page_id, non_null(:id)
     field :book_id, non_null(:id)
     field :text, non_null(:string)
-    field :blob, non_null(list_of(non_null(:input_position)))
+    field :path, non_null(:string)
   end
 
-  @desc "Positions for translation blobs drawn on page"
-  object :position do
-    field :id, non_null(:id)
-    field :x, non_null(:integer)
-    field :y, non_null(:integer)
-    field :group, non_null(:integer)
-  end
-
-  @desc "Input type for position"
-  input_object :input_position do
-    field :id, :id
-    field :x, non_null(:integer)
-    field :y, non_null(:integer)
-    field :group, non_null(:integer)
-  end
 end

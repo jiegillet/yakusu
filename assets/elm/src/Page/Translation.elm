@@ -1,4 +1,7 @@
-module Page.Translation exposing (Model, Msg, init, subscriptions, update, view)
+-- module Page.Translation exposing (Model, Msg, init, subscriptions, update, view)
+
+
+module Page.Translation exposing (..)
 
 import Browser exposing (Document, UrlRequest)
 import Browser.Events as Events
@@ -12,7 +15,6 @@ import GraphQLBook.Mutation as Mutation
 import GraphQLBook.Object
 import GraphQLBook.Object.Book as GBook
 import GraphQLBook.Object.Page as GPage
-import GraphQLBook.Object.Position as GPosition
 import GraphQLBook.Object.Translation as GTranslation
 import GraphQLBook.Query as Query
 import GraphQLBook.Scalar exposing (Id(..))
@@ -27,7 +29,7 @@ import Svg exposing (Svg)
 import Svg.Attributes as A
 import Svg.Events
 import Svg.Lazy
-import Types exposing (Book, Page, Position, Translation)
+import Types exposing (Book, Page, Translation)
 import ZipList exposing (ZipList)
 
 
@@ -40,8 +42,8 @@ type alias Model =
     , bookId : String
     , drawingState : DrawingState
     , text : String
-    , blobBuffer : List Position
-    , blob : List (List Position)
+    , blob : List Position
+    , path : String
     , pages : RemoteData (Error (Maybe (ZipList Page))) (Maybe (ZipList Page))
     , mode : Mode
     }
@@ -53,8 +55,8 @@ init context =
       , bookId = "1"
       , drawingState = NotDrawing
       , text = ""
-      , blobBuffer = []
       , blob = []
+      , path = ""
       , pages = Loading
       , mode = Read
       }
@@ -70,18 +72,30 @@ type alias Page =
     }
 
 
-type alias Translation =
-    { id : String
-    , pageId : String
-    , text : String
-    , blob : Dict Int (List Position)
-    }
-
-
 type alias Position =
     { x : Int
     , y : Int
     }
+
+
+addPos : Position -> Position -> Position
+addPos p1 p2 =
+    Position (p1.x + p2.x) (p1.y + p2.y)
+
+
+subPos : Position -> Position -> Position
+subPos p1 p2 =
+    Position (p1.x - p2.x) (p1.y - p2.y)
+
+
+multPos : Float -> Position -> Position
+multPos a { x, y } =
+    Position (round (a * toFloat x)) (round (a * toFloat y))
+
+
+normPos : Position -> Float
+normPos { x, y } =
+    sqrt (toFloat x ^ 2 + toFloat y ^ 2)
 
 
 type DrawingState
@@ -113,10 +127,7 @@ toHex { red, green, blue, alpha } =
         ]
 
 
-mapRemoteZip :
-    (a -> a)
-    -> RemoteData (Error e) (Maybe (ZipList a))
-    -> RemoteData (Error e) (Maybe (ZipList a))
+mapRemoteZip : (a -> a) -> RemoteData e (Maybe (ZipList a)) -> RemoteData e (Maybe (ZipList a))
 mapRemoteZip f =
     mapCurrent f
         |> Maybe.map
@@ -142,7 +153,7 @@ type Msg
     | Drew Bool Position
     | StoppedDrawing
     | InputText String
-    | ClickedResetBlob
+    | ClickedResetPath
     | ClickedNextBlob String
     | ClickedPrevPage String
     | ClickedNextPage String
@@ -163,7 +174,12 @@ update msg model =
         Drew down pos ->
             ( { model
                 | drawingState = Drawing pos
-                , blobBuffer = pos :: model.blobBuffer
+                , blob =
+                    if List.head model.blob == Just pos then
+                        model.blob
+
+                    else
+                        pos :: model.blob
               }
             , Cmd.none
             )
@@ -171,8 +187,13 @@ update msg model =
         StoppedDrawing ->
             ( { model
                 | drawingState = NotDrawing
-                , blobBuffer = []
-                , blob = model.blobBuffer :: model.blob
+                , blob = []
+                , path =
+                    model.blob
+                        |> List.reverse
+                        |> keepEvery 5
+                        |> catmullRom
+                        |> (++) (" " ++ model.path)
               }
             , Cmd.none
             )
@@ -183,43 +204,41 @@ update msg model =
         InputText text ->
             ( { model | text = text }, Cmd.none )
 
-        ClickedResetBlob ->
-            ( { model | blob = [], blobBuffer = [] }, Cmd.none )
+        ClickedResetPath ->
+            ( { model | path = "" }, Cmd.none )
 
         ClickedNextBlob pageId ->
-            if model.text == "" || (model.blob == [] && model.blobBuffer == []) then
-                ( { model | text = "", blob = [], blobBuffer = [] }, Cmd.none )
+            if model.text == "" || model.path == "" then
+                ( { model | text = "", path = "" }, Cmd.none )
 
             else
-                ( model, saveTranslation identity model.bookId pageId model.text (model.blobBuffer :: model.blob) )
+                ( model, saveTranslation identity model.bookId (Translation "" pageId model.text model.path) )
 
         ClickedPrevPage pageId ->
-            if model.text == "" || (model.blob == [] && model.blobBuffer == []) then
+            if model.text == "" || model.path == "" then
                 ( { model
                     | text = ""
-                    , blob = []
-                    , blobBuffer = []
+                    , path = ""
                     , pages = RemoteData.map (Maybe.map ZipList.backward) model.pages
                   }
                 , Cmd.none
                 )
 
             else
-                ( model, saveTranslation ZipList.backward model.bookId pageId model.text (model.blobBuffer :: model.blob) )
+                ( model, saveTranslation ZipList.backward model.bookId (Translation "" pageId model.text model.path) )
 
         ClickedNextPage pageId ->
-            if model.text == "" || (model.blob == [] && model.blobBuffer == []) then
+            if model.text == "" || model.path == "" then
                 ( { model
                     | text = ""
-                    , blob = []
-                    , blobBuffer = []
+                    , path = ""
                     , pages = RemoteData.map (Maybe.map ZipList.forward) model.pages
                   }
                 , Cmd.none
                 )
 
             else
-                ( model, saveTranslation ZipList.forward model.bookId pageId model.text (model.blobBuffer :: model.blob) )
+                ( model, saveTranslation ZipList.forward model.bookId (Translation "" pageId model.text model.path) )
 
         ToggledMode Read ->
             ( { model | mode = Read, drawingState = NotDrawing }, Cmd.none )
@@ -234,10 +253,17 @@ update msg model =
             case result of
                 Success (Just translation) ->
                     ( { model
-                        | pages = RemoteData.map (Maybe.map (addTranslation translation >> move)) model.pages
+                        | pages =
+                            RemoteData.map
+                                (Maybe.map
+                                    (mapCurrent
+                                        (\page -> { page | translations = translation :: page.translations })
+                                        >> move
+                                    )
+                                )
+                                model.pages
                         , text = ""
-                        , blobBuffer = []
-                        , blob = []
+                        , path = ""
                       }
                     , Cmd.none
                     )
@@ -246,9 +272,16 @@ update msg model =
                     ( model, Cmd.none )
 
 
-addTranslation : Types.Translation -> ZipList Page -> ZipList Page
-addTranslation { id, pageId, text, blob } =
-    mapCurrent (\page -> { page | translations = Translation id pageId text (toPosition blob) :: page.translations })
+keepEvery : Int -> List a -> List a
+keepEvery n list =
+    let
+        length =
+            List.length list
+    in
+    list
+        |> List.indexedMap Tuple.pair
+        |> List.filter (\( i, _ ) -> modBy n i == 0 || i + 1 == length)
+        |> List.map Tuple.second
 
 
 
@@ -308,7 +341,7 @@ view model =
                         .id (ZipList.current pages)
                 in
                 El.column [ El.spacing 5 ]
-                    [ viewImage model.mode model.drawingState (ZipList.current pages) model.text (model.blobBuffer :: model.blob)
+                    [ viewImage model.mode model.drawingState (ZipList.current pages) model.text model.blob model.path
                     , viewMode model.mode
                     , case model.mode of
                         Edit ->
@@ -323,27 +356,26 @@ view model =
     }
 
 
-viewImage : Mode -> DrawingState -> Page -> String -> List (List Position) -> Element Msg
-viewImage mode drawing ({ translations } as page) text activeBlob =
+viewImage : Mode -> DrawingState -> Page -> String -> List Position -> String -> Element Msg
+viewImage mode drawing ({ translations } as page) text blob tempPath =
     let
         paths =
-            viewPath drawing page.id yellow activeBlob
-                ++ (List.map2
-                        (\{ id, blob } color ->
-                            viewPath drawing
-                                page.id
-                                (if drawing == SelectedTranslation id then
-                                    yellow
+            viewPath drawing page.id yellow tempPath
+                :: viewPosPath yellow blob
+                :: List.map2
+                    (\{ id, path } color ->
+                        viewPath drawing
+                            page.id
+                            (if drawing == SelectedTranslation id then
+                                yellow
 
-                                 else
-                                    toHex color
-                                )
-                                (Dict.values blob)
-                        )
-                        (List.reverse translations)
-                        colors
-                        |> List.concat
-                   )
+                             else
+                                toHex color
+                            )
+                            path
+                    )
+                    (List.reverse translations)
+                    colors
 
         image pageId =
             Svg.image
@@ -384,12 +416,25 @@ colors =
     [ Color 230 25 75 0.25, Color 60 180 75 0.25, Color 255 225 25 0.25, Color 0 130 200 0.25, Color 245 130 48 0.25, Color 145 30 180 0.25, Color 70 240 240 0.25, Color 240 50 230 0.25, Color 210 245 60 0.25, Color 250 190 212 0.25, Color 0 128 128 0.25, Color 220 190 255 0.25, Color 170 110 40 0.25, Color 255 250 200 0.25, Color 128 0 0 0.25, Color 170 255 195 0.25, Color 128 128 0 0.25, Color 255 215 180 0.25, Color 0 0 128 0.25, Color 128 128 128 0.25, Color 255 255 255 0.25, Color 0 0 0 0.25 ]
 
 
-viewPath : DrawingState -> String -> String -> List (List Position) -> List (Svg Msg)
-viewPath drawing translationId color blob =
-    let
-        toString { x, y } =
-            String.fromInt x ++ "," ++ String.fromInt y
+viewPosPath : String -> List Position -> Svg Msg
+viewPosPath color blob =
+    Svg.path
+        [ blob
+            |> List.reverse
+            |> keepEvery 5
+            |> catmullRom
+            |> A.d
+        , A.fill "none"
+        , A.stroke color
+        , A.strokeWidth "35"
+        , A.strokeLinecap "round"
+        ]
+        []
 
+
+viewPath : DrawingState -> String -> String -> String -> Svg Msg
+viewPath drawing translationId color path =
+    let
         event =
             case drawing of
                 Drawing _ ->
@@ -397,25 +442,89 @@ viewPath drawing translationId color blob =
 
                 _ ->
                     [ Svg.Events.onClick (ClickedTranslation translationId) ]
-
-        toSvg blobBuffer =
-            blobBuffer
-                |> List.map toString
-                |> String.join " "
-                |> (\pos ->
-                        Svg.polyline
-                            ([ A.points pos
-                             , A.fill "none"
-                             , A.stroke color
-                             , A.strokeWidth "35"
-                             , A.strokeLinecap "round"
-                             ]
-                                ++ event
-                            )
-                            []
-                   )
     in
-    List.map toSvg blob
+    Svg.path
+        ([ A.d path
+         , A.fill "none"
+         , A.stroke color
+         , A.strokeWidth "35"
+         , A.strokeLinecap "round"
+         ]
+            ++ event
+        )
+        []
+
+
+
+-- https://stackoverflow.com/questions/30748316/catmull-rom-interpolation-on-svg-paths
+
+
+catmullRom : List Position -> String
+catmullRom points =
+    let
+        toString { x, y } =
+            String.fromInt x ++ " " ++ String.fromInt y
+
+        last2 p0 p1 ps =
+            case List.reverse ps of
+                [] ->
+                    ( p0, p1 )
+
+                [ p2 ] ->
+                    ( p1, p2 )
+
+                pLast :: pBeforeLast :: _ ->
+                    ( pBeforeLast, pLast )
+
+        pad ( p0, p1 ) ( pBeforeLast, pLast ) ps =
+            Position (2 * p0.x - p1.x) (2 * p0.y - p1.y)
+                :: (ps ++ [ Position (2 * pLast.x - pBeforeLast.x) (2 * pLast.y - pBeforeLast.y) ])
+
+        toCublicSpline ps =
+            List.map4 curve ps (List.drop 1 ps) (List.drop 2 ps) (List.drop 3 ps)
+                |> String.concat
+
+        curve p0 p1 p2 p3 =
+            let
+                t0 =
+                    0
+
+                t1 =
+                    t0 + normPos (subPos p1 p0)
+
+                t2 =
+                    t1 + normPos (subPos p2 p1)
+
+                t3 =
+                    t2 + normPos (subPos p3 p2)
+
+                m1 =
+                    addPos (multPos (((t2 - t1) ^ 2) / ((t2 - t0) * (t1 - t0))) (subPos p1 p0))
+                        (multPos (((t2 - t1) * (t1 - t0)) / ((t2 - t0) * (t2 - t1))) (subPos p2 p1))
+
+                m2 =
+                    addPos (multPos (((t2 - t1) * (t3 - t2)) / ((t3 - t1) * (t3 - t1))) (subPos p2 p1))
+                        (multPos (((t2 - t1) ^ 2) / ((t3 - t1) * (t3 - t2))) (subPos p3 p2))
+
+                q1 =
+                    addPos p1 (multPos (1 / 3) m1)
+
+                q2 =
+                    subPos p2 (multPos (1 / 3) m2)
+            in
+            String.concat [ " C ", toString q1, ", ", toString q2, ", ", toString p2 ]
+    in
+    case points of
+        [] ->
+            ""
+
+        [ _ ] ->
+            ""
+
+        p0 :: p1 :: ps ->
+            pad ( p0, p1 ) (last2 p0 p1 points) points
+                |> toCublicSpline
+                |> (++) ("M " ++ toString p1)
 
 
 viewMode : Mode -> Element Msg
@@ -460,7 +569,7 @@ viewEditText text =
         { onChange = InputText
         , text = text
         , placeholder = Nothing
-        , label = Input.labelAbove [] (El.text "Draw a blob over some text and translate it below")
+        , label = Input.labelAbove [] (El.text "Draw over a chunk of text and translate it below. If there is no text or no drawing, nothing will be saved")
         , spellcheck = True
         }
 
@@ -488,11 +597,11 @@ viewEditButtons pageId =
     let
         resetButton =
             Input.button []
-                { onPress = Just ClickedResetBlob, label = buttonLabel "Reset blob" }
+                { onPress = Just ClickedResetPath, label = buttonLabel "Reset drawing" }
 
         nextBlobButton =
             Input.button []
-                { onPress = Just (ClickedNextBlob pageId), label = buttonLabel "Save blob" }
+                { onPress = Just (ClickedNextBlob pageId), label = buttonLabel "Save Translation" }
     in
     El.column [ El.spacing 5 ]
         [ El.row [ El.spacing 5 ] [ resetButton, nextBlobButton ]
@@ -527,7 +636,7 @@ viewEditMode translations pageId text =
 viewReadMode : List Translation -> Element Msg
 viewReadMode translations =
     List.map2 viewTranslation (List.reverse translations) colors
-        |> (\t -> t ++ [ viewReadButtons ])
+        |> (\t -> viewReadButtons :: t)
         |> El.column []
 
 
@@ -556,7 +665,6 @@ pagesSelection =
                 getTranslations ({ pageNumber, imageType } as page) =
                     translations
                         |> List.filter (\{ pageId } -> pageId == page.id)
-                        |> List.map (\{ id, pageId, text, blob } -> Translation id pageId text (toPosition blob))
                         |> Page page.id imageType pageNumber
             in
             ZipList.map getTranslations zipPages
@@ -566,34 +674,18 @@ pagesSelection =
         (GBook.translations Types.translationSelection)
 
 
-toPosition : Dict Int (List { b | x : Int, y : Int }) -> Dict Int (List Position)
-toPosition =
-    Dict.map (\_ -> List.map (\{ x, y } -> Position x y))
-
-
-translationMutation :
-    String
-    -> String
-    -> String
-    -> List (List Position)
-    -> SelectionSet (Maybe Types.Translation) RootMutation
-translationMutation bookId pageId text blob =
+translationMutation : String -> Translation -> SelectionSet (Maybe Translation) RootMutation
+translationMutation bookId { pageId, text, path } =
     let
         inputTranslation =
             { translation =
                 { id = Absent
-                , blob =
-                    blob
-                        |> List.indexedMap (\group -> List.map (makeTranslation group))
-                        |> List.concat
                 , bookId = Id bookId
                 , pageId = Id pageId
                 , text = text
+                , path = path
                 }
             }
-
-        makeTranslation group { x, y } =
-            { id = Absent, x = x, y = y, group = group }
     in
     Mutation.createTranslation inputTranslation Types.translationSelection
 
@@ -605,8 +697,8 @@ requestBook bookId =
         |> Graphql.Http.send (RemoteData.fromResult >> GotBook)
 
 
-saveTranslation : (ZipList Page -> ZipList Page) -> String -> String -> String -> List (List Position) -> Cmd Msg
-saveTranslation move bookId pageId text blob =
-    translationMutation bookId pageId text blob
+saveTranslation : (ZipList Page -> ZipList Page) -> String -> Translation -> Cmd Msg
+saveTranslation move bookId translation =
+    translationMutation bookId translation
         |> Graphql.Http.mutationRequest "http://localhost:4000/api"
         |> Graphql.Http.send (RemoteData.fromResult >> AddedTranslation move)

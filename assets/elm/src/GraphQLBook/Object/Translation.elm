@@ -34,11 +34,9 @@ pageId =
     Object.selectionForField "ScalarCodecs.Id" "pageId" [] (GraphQLBook.ScalarCodecs.codecs |> GraphQLBook.Scalar.unwrapCodecs |> .codecId |> .decoder)
 
 
-positions :
-    SelectionSet decodesTo GraphQLBook.Object.Position
-    -> SelectionSet (List decodesTo) GraphQLBook.Object.Translation
-positions object_ =
-    Object.selectionForCompositeField "positions" [] object_ (identity >> Decode.list)
+path : SelectionSet String GraphQLBook.Object.Translation
+path =
+    Object.selectionForField "String" "path" [] Decode.string
 
 
 text : SelectionSet String GraphQLBook.Object.Translation

@@ -13,9 +13,5 @@ type Page
     = Page
 
 
-type Position
-    = Position
-
-
 type Translation
     = Translation

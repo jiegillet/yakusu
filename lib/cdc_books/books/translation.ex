@@ -4,10 +4,10 @@ defmodule CdcBooks.Books.Translation do
 
   schema "translations" do
     field :text, :string
+    field :path, :string
 
     belongs_to :page, CdcBooks.Books.Translation
     belongs_to :book, CdcBooks.Books.Book
-    has_many :positions, CdcBooks.Books.Position
 
     timestamps()
   end
@@ -15,7 +15,7 @@ defmodule CdcBooks.Books.Translation do
   @doc false
   def changeset(translation, attrs) do
     translation
-    |> cast(attrs, [:text, :page_id, :book_id])
-    |> validate_required([:text, :page_id, :book_id])
+    |> cast(attrs, [:text, :path, :page_id, :book_id])
+    |> validate_required([:text, :path, :page_id, :book_id])
   end
 end

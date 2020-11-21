@@ -6,7 +6,6 @@ import File exposing (File)
 import GraphQLBook.Object
 import GraphQLBook.Object.Book as GBook
 import GraphQLBook.Object.Page as GPage
-import GraphQLBook.Object.Position as GPosition
 import GraphQLBook.Object.Translation as GTranslation
 import GraphQLBook.Query as Query
 import GraphQLBook.Scalar exposing (Id(..))
@@ -57,15 +56,7 @@ type alias Translation =
     { id : String
     , pageId : String
     , text : String
-    , blob : Dict Int (List Position)
-    }
-
-
-type alias Position =
-    { id : String
-    , group : Int
-    , x : Int
-    , y : Int
+    , path : String
     }
 
 
@@ -110,16 +101,7 @@ translationSelection =
         (SelectionSet.map idToString GTranslation.id)
         (SelectionSet.map idToString GTranslation.pageId)
         GTranslation.text
-        (SelectionSet.map (Dict.groupBy .group) (GTranslation.positions positionSelection))
-
-
-positionSelection : SelectionSet Position GraphQLBook.Object.Position
-positionSelection =
-    SelectionSet.map4 Position
-        (SelectionSet.map idToString GPosition.id)
-        GPosition.group
-        GPosition.x
-        GPosition.y
+        GTranslation.path
 
 
 toDict : List { a | id : comparable } -> Dict comparable { a | id : comparable }
