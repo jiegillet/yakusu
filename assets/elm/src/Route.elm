@@ -11,7 +11,7 @@ import Url.Parser.Query as Query
 type Route
     = Home
     | Login
-    | Translation
+    | Translation String
     | Books
     | AddBook
 
@@ -21,7 +21,7 @@ parser =
     oneOf
         [ Parser.map Home Parser.top
         , Parser.map Login (s "login")
-        , Parser.map Translation (s "translation")
+        , Parser.map Translation (s "translation" </> string)
         , Parser.map Books (s "books")
         , Parser.map AddBook (s "add")
         ]
@@ -36,8 +36,8 @@ routeToPieces route =
         Login ->
             ( [ "login" ], [] )
 
-        Translation ->
-            ( [ "translation" ], [] )
+        Translation id ->
+            ( [ "translation", id ], [] )
 
         Books ->
             ( [ "books" ], [] )
