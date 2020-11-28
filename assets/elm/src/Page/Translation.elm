@@ -106,7 +106,7 @@ type DrawingState
 
 type Mode
     = Read
-    | Edit Translation
+    | Edit Translation Color
     | NewTranslation String
 
 
@@ -154,10 +154,12 @@ type Msg
     | StoppedDrawing
     | InputText String
     | ClickedResetPath
-    | ClickedNewTranslation Mode String
-    | ClickedPrevPage Mode
-    | ClickedNextPage Mode
-    | ClickedTranslation Translation
+    | ClickedNewTranslation String
+    | ClickedPrevPage
+    | ClickedNextPage
+    | ClickedSave
+    | ClickedCancel
+    | ClickedTranslation Translation Color
     | GotBook (RemoteData (Error (Maybe (ZipList Page))) (Maybe (ZipList Page)))
     | AddedTranslation (ZipList Page -> ZipList Page) (RemoteData (Error (Maybe Translation)) (Maybe Translation))
     | EditedTranslation (ZipList Page -> ZipList Page) (RemoteData (Error (Maybe Translation)) (Maybe Translation))
@@ -201,9 +203,9 @@ update msg model =
         InputText text ->
             ( { model | text = text }, Cmd.none )
 
-        ClickedTranslation ({ text, path } as translation) ->
+        ClickedTranslation ({ text, path } as translation) color ->
             ( { model
-                | mode = Edit translation
+                | mode = Edit translation color
                 , text = text
                 , path = path
               }
@@ -213,14 +215,20 @@ update msg model =
         ClickedResetPath ->
             ( { model | path = "" }, Cmd.none )
 
-        ClickedNewTranslation mode pageId ->
-            saveTranslationAndMove model mode (NewTranslation pageId) identity
+        ClickedNewTranslation pageId ->
+            ( { model | mode = NewTranslation pageId }, Cmd.none )
 
-        ClickedPrevPage mode ->
-            saveTranslationAndMove model mode Read ZipList.backward
+        ClickedPrevPage ->
+            saveTranslationAndMove model ZipList.backward
 
-        ClickedNextPage mode ->
-            saveTranslationAndMove model mode Read ZipList.forward
+        ClickedNextPage ->
+            saveTranslationAndMove model ZipList.forward
+
+        ClickedSave ->
+            saveTranslationAndMove model identity
+
+        ClickedCancel ->
+            ( { model | mode = Read, text = "", blob = [], path = "" }, Cmd.none )
 
         GotBook result ->
             ( { model | pages = result }, Cmd.none )
@@ -238,6 +246,7 @@ update msg model =
                                 model.pages
                         , text = ""
                         , path = ""
+                        , mode = Read
                       }
                     , Cmd.none
                     )
@@ -258,6 +267,7 @@ update msg model =
                                 model.pages
                         , text = ""
                         , path = ""
+                        , mode = Read
                       }
                     , Cmd.none
                     )
@@ -266,30 +276,29 @@ update msg model =
                     ( model, Cmd.none )
 
 
-saveTranslationAndMove : Model -> Mode -> Mode -> (ZipList Page -> ZipList Page) -> ( Model, Cmd Msg )
-saveTranslationAndMove model mode newMode move =
+saveTranslationAndMove : Model -> (ZipList Page -> ZipList Page) -> ( Model, Cmd Msg )
+saveTranslationAndMove model move =
     if model.text == "" || model.path == "" then
         ( { model
             | text = ""
             , path = ""
             , pages = mapRemoteMaybe move model.pages
-            , mode = newMode
           }
         , Cmd.none
         )
 
     else
-        case mode of
+        case model.mode of
             Read ->
-                ( { model | mode = newMode }, Cmd.none )
+                ( model, Cmd.none )
 
-            Edit translation ->
-                ( { model | mode = newMode }
+            Edit translation _ ->
+                ( model
                 , editTranslation move model.bookId { translation | text = model.text, path = model.path }
                 )
 
             NewTranslation pageId ->
-                ( { model | mode = newMode }
+                ( model
                 , saveTranslation move model.bookId (Translation "" pageId model.text model.path)
                 )
 
@@ -358,15 +367,15 @@ view model =
                 El.column [ El.spacing 5 ]
                     [ viewImage model.mode (ZipList.current pages) model.text model.blob model.path
                     , viewButtons model.mode (ZipList.current pages).id
-                    , if model.mode == Read then
-                        El.none
+                    , case model.mode of
+                        NewTranslation _ ->
+                            viewTextBox model.text
 
-                      else
-                        viewTextBox model.text
+                        _ ->
+                            El.none
                     , ZipList.current pages
                         |> .translations
-                        |> List.filter (\t -> Edit t /= model.mode)
-                        |> List.map2 viewTranslation colors
+                        |> List.map2 (viewTranslation model.mode model.text) colors
                         |> El.column [ El.spacing 2 ]
                     ]
 
@@ -378,12 +387,29 @@ view model =
 viewImage : Mode -> Page -> String -> List Position -> String -> Element Msg
 viewImage mode ({ translations } as page) text blob tempPath =
     let
+        activeColor =
+            case mode of
+                Edit _ color ->
+                    color
+
+                _ ->
+                    yellow
+
         paths =
-            viewPath yellow tempPath
-                :: viewPosPath yellow blob
+            viewPath mode activeColor (Translation "" "" "" tempPath)
+                :: viewPosPath activeColor blob
                 :: List.map2
-                    (\{ id, path } color -> viewPath (toHex color) path)
-                    (List.filter (\t -> Edit t /= mode) translations)
+                    (\translation color ->
+                        viewPath mode
+                            (if color == activeColor then
+                                Color 0 0 0 0
+
+                             else
+                                color
+                            )
+                            translation
+                    )
+                    translations
                     colors
 
         image pageId =
@@ -410,14 +436,9 @@ viewImage mode ({ translations } as page) text blob tempPath =
         |> El.html
 
 
-yellow : String
+yellow : Color
 yellow =
-    "#FBEC5D40"
-
-
-grey : String
-grey =
-    "#0E0E0E40"
+    Color 251 236 93 0.25
 
 
 colors : List Color
@@ -425,7 +446,7 @@ colors =
     [ Color 230 25 75 0.25, Color 60 180 75 0.25, Color 255 225 25 0.25, Color 0 130 200 0.25, Color 245 130 48 0.25, Color 145 30 180 0.25, Color 70 240 240 0.25, Color 240 50 230 0.25, Color 210 245 60 0.25, Color 250 190 212 0.25, Color 0 128 128 0.25, Color 220 190 255 0.25, Color 170 110 40 0.25, Color 255 250 200 0.25, Color 128 0 0 0.25, Color 170 255 195 0.25, Color 128 128 0 0.25, Color 255 215 180 0.25, Color 0 0 128 0.25, Color 128 128 128 0.25, Color 255 255 255 0.25, Color 0 0 0 0.25 ]
 
 
-viewPosPath : String -> List Position -> Svg Msg
+viewPosPath : Color -> List Position -> Svg Msg
 viewPosPath color blob =
     Svg.path
         [ blob
@@ -434,22 +455,29 @@ viewPosPath color blob =
             |> catmullRom
             |> A.d
         , A.fill "none"
-        , A.stroke color
+        , A.stroke (toHex color)
         , A.strokeWidth "35"
         , A.strokeLinecap "round"
         ]
         []
 
 
-viewPath : String -> String -> Svg Msg
-viewPath color path =
+viewPath : Mode -> Color -> Translation -> Svg Msg
+viewPath mode color translation =
     Svg.path
-        [ A.d path
-        , A.fill "none"
-        , A.stroke color
-        , A.strokeWidth "35"
-        , A.strokeLinecap "round"
-        ]
+        ([ A.d translation.path
+         , A.fill "none"
+         , A.stroke (toHex color)
+         , A.strokeWidth "35"
+         , A.strokeLinecap "round"
+         ]
+            ++ (if mode == Read then
+                    [ Svg.Events.onClick (ClickedTranslation translation color) ]
+
+                else
+                    []
+               )
+        )
         []
 
 
@@ -534,11 +562,11 @@ viewButtons mode pageId =
 
         prevPageButton =
             Input.button []
-                { onPress = Just (ClickedPrevPage mode), label = buttonLabel "Previous page" }
+                { onPress = Just ClickedPrevPage, label = buttonLabel "Previous page" }
 
         nextPageButton =
             Input.button []
-                { onPress = Just (ClickedNextPage mode), label = buttonLabel "Next page" }
+                { onPress = Just ClickedNextPage, label = buttonLabel "Next page" }
 
         resetButton =
             Input.button []
@@ -546,7 +574,15 @@ viewButtons mode pageId =
 
         newTranslation =
             Input.button []
-                { onPress = Just (ClickedNewTranslation mode pageId), label = buttonLabel "New Translation" }
+                { onPress = Just (ClickedNewTranslation pageId), label = buttonLabel "New Translation" }
+
+        saveButton =
+            Input.button []
+                { onPress = Just ClickedSave, label = buttonLabel "Save" }
+
+        cancelButton =
+            Input.button []
+                { onPress = Just ClickedCancel, label = buttonLabel "Cancel" }
     in
     case mode of
         Read ->
@@ -555,15 +591,15 @@ viewButtons mode pageId =
                 , El.row [ El.spacing 5 ] [ prevPageButton, nextPageButton ]
                 ]
 
-        Edit _ ->
+        NewTranslation _ ->
             El.column [ El.spacing 5 ]
-                [ El.row [ El.spacing 5 ] [ resetButton, newTranslation ]
+                [ El.row [ El.spacing 5 ] [ saveButton, resetButton, cancelButton ]
                 , El.row [ El.spacing 5 ] [ prevPageButton, nextPageButton ]
                 ]
 
-        NewTranslation _ ->
+        Edit _ _ ->
             El.column [ El.spacing 5 ]
-                [ El.row [ El.spacing 5 ] [ resetButton, newTranslation ]
+                [ El.row [ El.spacing 5 ] [ saveButton, resetButton ]
                 , El.row [ El.spacing 5 ] [ prevPageButton, nextPageButton ]
                 ]
 
@@ -579,16 +615,26 @@ viewTextBox text =
         }
 
 
-viewTranslation : Color -> Translation -> Element Msg
-viewTranslation color translation =
-    El.text translation.text
-        |> El.el
-            [ El.padding 5
-            , Border.color (El.fromRgb255 { color | alpha = 1 })
-            , Background.color (El.fromRgb255 color)
-            , Border.width 3
-            , Element.Events.onClick (ClickedTranslation translation)
-            ]
+viewTranslation : Mode -> String -> Color -> Translation -> Element Msg
+viewTranslation mode text color translation =
+    if mode == Edit translation color then
+        Input.multiline [ Background.color (El.fromRgb255 color) ]
+            { onChange = InputText
+            , text = text
+            , placeholder = Nothing
+            , label = Input.labelHidden "Edit translation"
+            , spellcheck = True
+            }
+
+    else
+        El.text translation.text
+            |> El.el
+                [ El.padding 5
+                , Border.color (El.fromRgb255 { color | alpha = 1 })
+                , Background.color (El.fromRgb255 color)
+                , Border.width 3
+                , Element.Events.onClick (ClickedTranslation translation color)
+                ]
 
 
 
