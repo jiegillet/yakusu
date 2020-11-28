@@ -25,6 +25,11 @@ defmodule CdcBooksWeb.Books.BookController do
     render(conn, "show.json", book: book)
   end
 
+  def export(conn, %{"id" => id, "max" => max_characters}) do
+    book = Books.get_book!(id)
+    render(conn, "book.txt", book: book, max_characters: String.to_integer(max_characters))
+  end
+
   def update(conn, %{"id" => id, "book" => book_params}) do
     book = Books.get_book!(id)
 
@@ -55,7 +60,7 @@ defmodule CdcBooksWeb.Books.BookController do
     pages =
       images
       |> Enum.with_index(1)
-      |> Enum.map(fn {%Plug.Upload{content_type: image_type, path: path}, page_number} ->
+      |> Enum.map(fn {%Plug.Upload{path: path}, page_number} ->
         {:ok, image} =
           path
           |> CdcBooks.Mogrify.blur_image()

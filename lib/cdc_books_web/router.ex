@@ -29,6 +29,7 @@ defmodule CdcBooksWeb.Router do
     pipe_through :rest_api
 
     post "/books", Books.BookController, :new_book
+    get "book/:id/:max", Books.BookController, :export
     get "/pages/:id", Books.PageController, :image
     # post "/pages", Books.PageController, :create
     # resources "/translations", Books.TranslationController
