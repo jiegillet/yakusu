@@ -241,8 +241,8 @@ changeRouteTo maybeRoute model =
                     Login.init (Just Route.Home) context
                         |> updateWith Login GotLoginMsg
 
-                Just Route.Translation ->
-                    Translation.init context
+                Just (Route.Translation id) ->
+                    Translation.init context id
                         |> updateWith Translation GotTranslationMsg
 
 

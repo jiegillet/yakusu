@@ -50,10 +50,10 @@ type alias Model =
     }
 
 
-init : Context -> ( Model, Cmd Msg )
-init context =
+init : Context -> String -> ( Model, Cmd Msg )
+init context bookId =
     ( { context = context
-      , bookId = "1"
+      , bookId = bookId
       , drawingState = NotDrawing
       , text = ""
       , blob = []
@@ -61,7 +61,7 @@ init context =
       , pages = Loading
       , mode = Read
       }
-    , requestBook "1"
+    , requestBook bookId
     )
 
 
@@ -367,7 +367,7 @@ view model =
                         |> .translations
                         |> List.filter (\t -> Edit t /= model.mode)
                         |> List.map2 viewTranslation colors
-                        |> El.column []
+                        |> El.column [ El.spacing 2 ]
                     ]
 
             _ ->
@@ -390,7 +390,7 @@ viewImage mode ({ translations } as page) text blob tempPath =
             Svg.image
                 [ A.width "800"
                 , A.height "800"
-                , A.xlinkHref ("http://localhost:4000/api/rest/pages/" ++ pageId)
+                , A.xlinkHref ("/api/rest/pages/" ++ pageId)
                 ]
                 []
     in
@@ -585,7 +585,8 @@ viewTranslation color translation =
         |> El.el
             [ El.padding 5
             , Border.color (El.fromRgb255 { color | alpha = 1 })
-            , Border.width 1
+            , Background.color (El.fromRgb255 color)
+            , Border.width 3
             , Element.Events.onClick (ClickedTranslation translation)
             ]
 
@@ -648,19 +649,19 @@ translationMutation bookId { id, pageId, text, path } =
 requestBook : String -> Cmd Msg
 requestBook bookId =
     bookQuery bookId
-        |> Graphql.Http.queryRequest "http://localhost:4000/api"
+        |> Graphql.Http.queryRequest "/api"
         |> Graphql.Http.send (RemoteData.fromResult >> GotBook)
 
 
 saveTranslation : (ZipList Page -> ZipList Page) -> String -> Translation -> Cmd Msg
 saveTranslation move bookId translation =
     translationMutation bookId translation
-        |> Graphql.Http.mutationRequest "http://localhost:4000/api"
+        |> Graphql.Http.mutationRequest "/api"
         |> Graphql.Http.send (RemoteData.fromResult >> AddedTranslation move)
 
 
 editTranslation : (ZipList Page -> ZipList Page) -> String -> Translation -> Cmd Msg
 editTranslation move bookId translation =
     translationMutation bookId translation
-        |> Graphql.Http.mutationRequest "http://localhost:4000/api"
+        |> Graphql.Http.mutationRequest "/api"
         |> Graphql.Http.send (RemoteData.fromResult >> EditedTranslation move)

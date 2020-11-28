@@ -17,6 +17,7 @@ config :cdc_books, CdcBooks.Repo,
 # with webpack to recompile .js and .css sources.
 config :cdc_books, CdcBooksWeb.Endpoint,
   http: [port: 4000],
+  url: [host: "b-mo.local", path: "/"],
   debug_errors: true,
   code_reloader: true,
   check_origin: false,
