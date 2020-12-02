@@ -37,5 +37,12 @@ defmodule CdcBooksWeb.Schema do
       arg(:translation, non_null(:input_translation))
       resolve(&Resolvers.Books.create_translation/3)
     end
+
+    @desc "Deletes a translation"
+    field :delete_translation, type: :translation do
+      arg(:id, non_null(:id))
+
+      resolve(&Resolvers.Books.delete_translation/3)
+    end
   end
 end

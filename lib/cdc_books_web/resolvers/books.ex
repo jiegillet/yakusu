@@ -45,4 +45,9 @@ defmodule CdcBooksWeb.Resolvers.Books do
   def create_translation(_parent, %{translation: args}, _resolution) do
     Books.create_translation(args)
   end
+
+  def delete_translation(_parent, %{id: id}, _resolution) do
+    Books.get_translation!(id)
+    |> Books.delete_translation()
+  end
 end

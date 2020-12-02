@@ -65,3 +65,17 @@ createTranslation :
     -> SelectionSet (Maybe decodesTo) RootMutation
 createTranslation requiredArgs object_ =
     Object.selectionForCompositeField "createTranslation" [ Argument.required "translation" requiredArgs.translation GraphQLBook.InputObject.encodeInputTranslation ] object_ (identity >> Decode.nullable)
+
+
+type alias DeleteTranslationRequiredArguments =
+    { id : GraphQLBook.ScalarCodecs.Id }
+
+
+{-| Deletes a translation
+-}
+deleteTranslation :
+    DeleteTranslationRequiredArguments
+    -> SelectionSet decodesTo GraphQLBook.Object.Translation
+    -> SelectionSet (Maybe decodesTo) RootMutation
+deleteTranslation requiredArgs object_ =
+    Object.selectionForCompositeField "deleteTranslation" [ Argument.required "id" requiredArgs.id (GraphQLBook.ScalarCodecs.codecs |> GraphQLBook.Scalar.unwrapEncoder .codecId) ] object_ (identity >> Decode.nullable)

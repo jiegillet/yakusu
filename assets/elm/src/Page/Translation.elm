@@ -160,9 +160,11 @@ type Msg
     | ClickedSave
     | ClickedCancel
     | ClickedTranslation Translation Color
+    | ClickedDelete Translation
     | GotBook (RemoteData (Error (Maybe (ZipList Page))) (Maybe (ZipList Page)))
     | AddedTranslation (ZipList Page -> ZipList Page) (RemoteData (Error (Maybe Translation)) (Maybe Translation))
     | EditedTranslation (ZipList Page -> ZipList Page) (RemoteData (Error (Maybe Translation)) (Maybe Translation))
+    | DeletedTranslation (RemoteData (Error (Maybe Translation)) (Maybe Translation))
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -211,6 +213,9 @@ update msg model =
               }
             , Cmd.none
             )
+
+        ClickedDelete translation ->
+            ( model, deleteTranslation translation )
 
         ClickedResetPath ->
             ( { model | path = "" }, Cmd.none )
@@ -263,6 +268,26 @@ update msg model =
                                 (mapCurrent
                                     (\page -> { page | translations = List.map (replace translation) page.translations })
                                     >> move
+                                )
+                                model.pages
+                        , text = ""
+                        , path = ""
+                        , mode = Read
+                      }
+                    , Cmd.none
+                    )
+
+                _ ->
+                    ( model, Cmd.none )
+
+        DeletedTranslation result ->
+            case result of
+                Success (Just translation) ->
+                    ( { model
+                        | pages =
+                            mapRemoteMaybe
+                                (mapCurrent
+                                    (\page -> { page | translations = List.filter ((/=) translation) page.translations })
                                 )
                                 model.pages
                         , text = ""
@@ -562,15 +587,15 @@ viewButtons mode pageId =
 
         prevPageButton =
             Input.button []
-                { onPress = Just ClickedPrevPage, label = buttonLabel "Previous page" }
+                { onPress = Just ClickedPrevPage, label = buttonLabel "Previous Page" }
 
         nextPageButton =
             Input.button []
-                { onPress = Just ClickedNextPage, label = buttonLabel "Next page" }
+                { onPress = Just ClickedNextPage, label = buttonLabel "Next Page" }
 
         resetButton =
             Input.button []
-                { onPress = Just ClickedResetPath, label = buttonLabel "Reset drawing" }
+                { onPress = Just ClickedResetPath, label = buttonLabel "Reset Drawing" }
 
         newTranslation =
             Input.button []
@@ -583,6 +608,10 @@ viewButtons mode pageId =
         cancelButton =
             Input.button []
                 { onPress = Just ClickedCancel, label = buttonLabel "Cancel" }
+
+        deleteButton translation =
+            Input.button []
+                { onPress = Just (ClickedDelete translation), label = buttonLabel "Delete" }
     in
     case mode of
         Read ->
@@ -597,9 +626,9 @@ viewButtons mode pageId =
                 , El.row [ El.spacing 5 ] [ prevPageButton, nextPageButton ]
                 ]
 
-        Edit _ _ ->
+        Edit translation _ ->
             El.column [ El.spacing 5 ]
-                [ El.row [ El.spacing 5 ] [ saveButton, resetButton ]
+                [ El.row [ El.spacing 5 ] [ saveButton, resetButton, deleteButton translation ]
                 , El.row [ El.spacing 5 ] [ prevPageButton, nextPageButton ]
                 ]
 
@@ -711,3 +740,10 @@ editTranslation move bookId translation =
     translationMutation bookId translation
         |> Graphql.Http.mutationRequest "/api"
         |> Graphql.Http.send (RemoteData.fromResult >> EditedTranslation move)
+
+
+deleteTranslation : Translation -> Cmd Msg
+deleteTranslation { id } =
+    Mutation.deleteTranslation { id = Id id } Types.translationSelection
+        |> Graphql.Http.mutationRequest "/api"
+        |> Graphql.Http.send (RemoteData.fromResult >> DeletedTranslation)
