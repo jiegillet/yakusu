@@ -9,6 +9,10 @@ type Book
     = Book
 
 
+type Category
+    = Category
+
+
 type Page
     = Page
 

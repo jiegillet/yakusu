@@ -1,6 +1,7 @@
 defmodule CdcBooksWeb.Schema.BooksTypes do
   use Absinthe.Schema.Notation
   alias CdcBooksWeb.Resolvers
+  alias CdcBooks.Books
 
   @desc "A book"
   object :book do
@@ -10,6 +11,7 @@ defmodule CdcBooksWeb.Schema.BooksTypes do
     field :language, non_null(:string)
     field :translator, :string
     field :notes, :string
+    field :category, non_null(:category)
 
     field :pages, non_null(list_of(non_null(:page))) do
       resolve(&Resolvers.Books.list_pages/3)
@@ -49,4 +51,9 @@ defmodule CdcBooksWeb.Schema.BooksTypes do
     field :path, non_null(:string)
   end
 
+  @desc "A book category"
+  object :category do
+    field :id, non_null(:id)
+    field :name, non_null(:string)
+  end
 end

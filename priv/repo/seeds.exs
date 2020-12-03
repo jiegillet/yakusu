@@ -9,3 +9,10 @@
 #
 # We recommend using the bang functions (`insert!`, `update!`
 # and so on) as they will fail if something goes wrong.
+
+alias CdcBooks.Books
+
+categories = ["Transportation", "Food", "Sea", "Dinosaurs", "All about me"]
+
+categories
+|> Enum.each(&Books.create_category(%{name: &1}))

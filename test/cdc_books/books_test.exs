@@ -250,4 +250,63 @@ defmodule CdcBooks.BooksTest do
       assert %Ecto.Changeset{} = Books.change_position(position)
     end
   end
+
+  describe "categories" do
+    alias CdcBooks.Books.Category
+
+    @valid_attrs %{category: "some category"}
+    @update_attrs %{category: "some updated category"}
+    @invalid_attrs %{category: nil}
+
+    def category_fixture(attrs \\ %{}) do
+      {:ok, category} =
+        attrs
+        |> Enum.into(@valid_attrs)
+        |> Books.create_category()
+
+      category
+    end
+
+    test "list_categories/0 returns all categories" do
+      category = category_fixture()
+      assert Books.list_categories() == [category]
+    end
+
+    test "get_category!/1 returns the category with given id" do
+      category = category_fixture()
+      assert Books.get_category!(category.id) == category
+    end
+
+    test "create_category/1 with valid data creates a category" do
+      assert {:ok, %Category{} = category} = Books.create_category(@valid_attrs)
+      assert category.category == "some category"
+    end
+
+    test "create_category/1 with invalid data returns error changeset" do
+      assert {:error, %Ecto.Changeset{}} = Books.create_category(@invalid_attrs)
+    end
+
+    test "update_category/2 with valid data updates the category" do
+      category = category_fixture()
+      assert {:ok, %Category{} = category} = Books.update_category(category, @update_attrs)
+      assert category.category == "some updated category"
+    end
+
+    test "update_category/2 with invalid data returns error changeset" do
+      category = category_fixture()
+      assert {:error, %Ecto.Changeset{}} = Books.update_category(category, @invalid_attrs)
+      assert category == Books.get_category!(category.id)
+    end
+
+    test "delete_category/1 deletes the category" do
+      category = category_fixture()
+      assert {:ok, %Category{}} = Books.delete_category(category)
+      assert_raise Ecto.NoResultsError, fn -> Books.get_category!(category.id) end
+    end
+
+    test "change_category/1 returns a category changeset" do
+      category = category_fixture()
+      assert %Ecto.Changeset{} = Books.change_category(category)
+    end
+  end
 end

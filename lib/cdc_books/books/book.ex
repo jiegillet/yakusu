@@ -1,6 +1,8 @@
 defmodule CdcBooks.Books.Book do
   use Ecto.Schema
   import Ecto.Changeset
+  alias CdcBooks.Books
+  alias CdcBooks.Books.{Book, Page, Category}
 
   schema "books" do
     field :author, :string
@@ -9,8 +11,9 @@ defmodule CdcBooks.Books.Book do
     field :translator, :string
     field :notes, :string
 
-    belongs_to :original, CdcBooks.Books.Book 
-    has_many :pages, CdcBooks.Books.Page
+    belongs_to :original, Book
+    has_many :pages, Page
+    belongs_to :category, Category
 
     timestamps()
   end
@@ -18,7 +21,7 @@ defmodule CdcBooks.Books.Book do
   @doc false
   def changeset(book, attrs) do
     book
-    |> cast(attrs, [:title, :author, :language, :notes, :translator, :original_id])
+    |> cast(attrs, [:title, :author, :language, :notes, :translator, :original_id, :category_id])
     |> validate_required([:title, :author, :language])
   end
 end

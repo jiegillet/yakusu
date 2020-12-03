@@ -28,6 +28,10 @@ defmodule CdcBooksWeb.Resolvers.Books do
     {:ok, Books.list_translations(book)}
   end
 
+  def list_categories(_parent, _args, _resolution) do
+    {:ok, Books.list_categories()}
+  end
+
   def create_book(_parent, %{id: id} = args, _resolution) do
     Books.get_book!(id)
     |> Books.update_book(args)

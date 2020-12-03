@@ -31,6 +31,13 @@ bookTranslations object_ =
     Object.selectionForCompositeField "bookTranslations" [] object_ (identity >> Decode.list)
 
 
+category :
+    SelectionSet decodesTo GraphQLBook.Object.Category
+    -> SelectionSet decodesTo GraphQLBook.Object.Book
+category object_ =
+    Object.selectionForCompositeField "category" [] object_ identity
+
+
 id : SelectionSet GraphQLBook.ScalarCodecs.Id GraphQLBook.Object.Book
 id =
     Object.selectionForField "ScalarCodecs.Id" "id" [] (GraphQLBook.ScalarCodecs.codecs |> GraphQLBook.Scalar.unwrapCodecs |> .codecId |> .decoder)

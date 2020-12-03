@@ -40,3 +40,12 @@ books :
     -> SelectionSet (List decodesTo) RootQuery
 books object_ =
     Object.selectionForCompositeField "books" [] object_ (identity >> Decode.list)
+
+
+{-| Get all categories
+-}
+categories :
+    SelectionSet decodesTo GraphQLBook.Object.Category
+    -> SelectionSet (List decodesTo) RootQuery
+categories object_ =
+    Object.selectionForCompositeField "categories" [] object_ (identity >> Decode.list)
