@@ -2,9 +2,9 @@ module Types exposing (..)
 
 import Dict exposing (Dict)
 import Dict.Extra as Dict
-import File exposing (File)
 import GraphQLBook.Object
 import GraphQLBook.Object.Book as GBook
+import GraphQLBook.Object.Category as GCategory
 import GraphQLBook.Object.Page as GPage
 import GraphQLBook.Object.Translation as GTranslation
 import GraphQLBook.Query as Query
@@ -29,9 +29,14 @@ type alias Book =
     , title : String
     , author : String
     , language : String
+    , catergory : Category
     , translations : List BookTranslation
     , pages : Dict String Page
     }
+
+
+type alias Category =
+    { id : String, name : String }
 
 
 type alias BookTranslation =
@@ -66,11 +71,12 @@ type alias Translation =
 
 bookSelection : SelectionSet Book GraphQLBook.Object.Book
 bookSelection =
-    SelectionSet.map6 Book
+    SelectionSet.map7 Book
         (SelectionSet.map idToString GBook.id)
         GBook.title
         GBook.author
         GBook.language
+        (GBook.category categorySelection)
         (GBook.bookTranslations bookTranslationSelection)
         (SelectionSet.map toDict (GBook.pages pageSelection))
 
@@ -93,6 +99,13 @@ pageSelection =
         (SelectionSet.map idToString GPage.id)
         GPage.imageType
         GPage.pageNumber
+
+
+categorySelection : SelectionSet Category GraphQLBook.Object.Category
+categorySelection =
+    SelectionSet.map2 Category
+        (SelectionSet.map idToString GCategory.id)
+        GCategory.name
 
 
 translationSelection : SelectionSet Translation GraphQLBook.Object.Translation

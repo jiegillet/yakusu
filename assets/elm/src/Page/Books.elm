@@ -3,17 +3,17 @@ module Page.Books exposing (..)
 import Common exposing (Context)
 import Debug
 import Dict exposing (Dict)
-import Dict.Extra as Dict
 import Element as El exposing (Element)
-import Element.Input as Input
+import Element.Font as Font
 import GraphQLBook.Object
-import GraphQLBook.Object.Book as GBook
+import GraphQLBook.Object.Book as GBook exposing (category)
 import GraphQLBook.Query as Query
 import GraphQLBook.Scalar exposing (Id)
 import Graphql.Http exposing (Error)
 import Graphql.Operation exposing (RootQuery)
 import Graphql.SelectionSet as SelectionSet exposing (SelectionSet)
 import RemoteData exposing (RemoteData(..))
+import Types exposing (Category)
 
 
 
@@ -25,6 +25,7 @@ type alias Book =
     , title : String
     , author : String
     , language : String
+    , category : Category
     , translations : List BookTranslation
     }
 
@@ -90,13 +91,52 @@ view model =
 
 viewBooks : List Book -> Element msg
 viewBooks books =
-    let
-        viewBook { title } =
-            El.text title
-    in
-    books
-        |> List.map viewBook
-        |> El.column []
+    El.table []
+        { data = books
+        , columns =
+            [ { header = El.text "Title"
+              , width = El.shrink
+              , view =
+                    \{ title, author } ->
+                        El.column []
+                            [ El.text title
+                            , El.text author
+                            ]
+              }
+            , { header = El.text "Category"
+              , width = El.shrink
+              , view =
+                    \{ category } ->
+                        El.text category.name
+              }
+            , { header = El.text "Tags"
+              , width = El.shrink
+              , view =
+                    \_ ->
+                        El.column []
+                            [ El.text "TODO: Add Tags"
+                            , El.text "TODO: Add Tags"
+                            ]
+              }
+            , { header = El.text "Translations available"
+              , width = El.shrink
+              , view =
+                    \{ translations } ->
+                        translations
+                            |> List.map (\{ language } -> El.text language)
+                            |> El.column []
+              }
+            , { header = El.text "Add a Translation"
+              , width = El.shrink
+              , view =
+                    \{ language, translations } -> El.text "TODO"
+
+              --  let
+              --     List.filter ()  ["Japanese", "English"]
+              }
+            ]
+                |> List.map (\x -> { x | header = El.el [ Font.bold, El.paddingXY 5 2 ] x.header })
+        }
 
 
 
@@ -110,11 +150,12 @@ booksQuery =
 
 bookSelection : SelectionSet Book GraphQLBook.Object.Book
 bookSelection =
-    SelectionSet.map5 Book
+    SelectionSet.map6 Book
         GBook.id
         GBook.title
         GBook.author
         GBook.language
+        (GBook.category Types.categorySelection)
         (GBook.bookTranslations bookTranslationSelection)
 
 
@@ -131,5 +172,5 @@ bookTranslationSelection =
 requestBooks : Cmd Msg
 requestBooks =
     booksQuery
-        |> Graphql.Http.queryRequest "http://localhost:4000/api"
+        |> Graphql.Http.queryRequest "/api"
         |> Graphql.Http.send (RemoteData.fromResult >> GotBooks)
