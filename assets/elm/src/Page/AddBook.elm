@@ -1,24 +1,30 @@
-module Page.AddBook exposing (..)
+module Page.AddBook exposing (Model, init, update, view)
 
-import Browser
 import Common exposing (Context)
-import Debug
 import Element as El exposing (Attribute, Element)
 import Element.Background as Background
 import Element.Border as Border
+import Element.Events as Events
+import Element.Font as Font
 import Element.Input as Input
 import File exposing (File)
 import File.Select as Select
-import Html.Events
+import GraphQLBook.Query as Query
+import Graphql.Http exposing (Error)
+import Graphql.Operation exposing (RootQuery)
+import Graphql.SelectionSet exposing (SelectionSet)
+import Html.Events exposing (onClick)
 import Http
 import Json.Decode as Decode exposing (Decoder)
 import Json.Encode as Encode exposing (Value)
+import RemoteData exposing (RemoteData(..))
+import Style
 import Task
-import Types exposing (Book)
+import Types exposing (Category)
 
 
 
--- _TYPES
+-- TYPES
 
 
 type alias Model =
@@ -26,14 +32,29 @@ type alias Model =
     , book : Form
     , hover : Bool
     , previews : List String
+    , categories : RemoteData (Error (List Category)) (List Category)
     }
+
+
+init : Context -> ( Model, Cmd Msg )
+init context =
+    ( { context = context
+      , book = emptyBook
+      , hover = False
+      , previews = []
+      , categories = Loading
+      }
+    , getCategories
+    )
 
 
 type alias Form =
     { title : String
     , author : String
     , language : String
+    , category : Maybe Category
     , images : List File
+    , dropdown : Dropdown
     }
 
 
@@ -43,18 +64,14 @@ emptyBook =
     , author = ""
     , language = ""
     , images = []
+    , category = Nothing
+    , dropdown = Closed
     }
 
 
-init : Context -> ( Model, Cmd msg )
-init context =
-    ( { context = context
-      , book = emptyBook
-      , hover = False
-      , previews = []
-      }
-    , Cmd.none
-    )
+type Dropdown
+    = Closed
+    | Open (Maybe Category)
 
 
 
@@ -72,6 +89,10 @@ type Msg
     | GotFiles File (List File)
     | GotPreviews (List String)
     | GotImages (Result Http.Error ()) --(List String))
+    | GotCategories (RemoteData (Error (List Category)) (List Category))
+    | ClickedSelectCategory
+    | HoverededCategory Category
+    | ClickedCategory Category
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -122,11 +143,36 @@ update msg model =
 
         GotImages result ->
             case result of
-                Ok images ->
-                    ( model, Debug.log (Debug.toString images) Cmd.none )
+                Ok _ ->
+                    ( model, Cmd.none )
 
-                Err err ->
-                    ( model, Debug.log "fail" Cmd.none )
+                Err _ ->
+                    ( model, Cmd.none )
+
+        GotCategories result ->
+            ( { model | categories = result }, Cmd.none )
+
+        ClickedSelectCategory ->
+            ( { model
+                | book =
+                    { modelBook
+                        | dropdown =
+                            case modelBook.dropdown of
+                                Closed ->
+                                    Open Nothing
+
+                                _ ->
+                                    Closed
+                    }
+              }
+            , Cmd.none
+            )
+
+        HoverededCategory category ->
+            ( { model | book = { modelBook | dropdown = Open (Just category) } }, Cmd.none )
+
+        ClickedCategory category ->
+            ( { model | book = { modelBook | dropdown = Closed, category = Just category } }, Cmd.none )
 
 
 
@@ -137,8 +183,13 @@ view : Model -> { title : String, body : Element Msg }
 view model =
     { title = "List of Books"
     , body =
-        viewForm model.book model.previews
-            |> El.el [ El.padding 30 ]
+        case model.categories of
+            Success categories ->
+                viewForm model.book model.previews categories
+                    |> El.el [ El.padding 30 ]
+
+            _ ->
+                El.text "There was a problem retrieving data."
     }
 
 
@@ -147,8 +198,8 @@ gray =
     El.rgb255 200 200 200
 
 
-viewForm : Form -> List String -> Element Msg
-viewForm ({ title, author, language } as book) previews =
+viewForm : Form -> List String -> List Category -> Element Msg
+viewForm ({ title, author, language, category, dropdown } as book) previews categories =
     let
         place text =
             text
@@ -175,6 +226,7 @@ viewForm ({ title, author, language } as book) previews =
             , placeholder = place "日本語"
             , label = Input.labelAbove [] (El.text "Original Language")
             }
+        , viewCategoryDropdown dropdown category categories
         , El.column
             [ El.width (El.px 400)
             , El.height El.shrink
@@ -208,6 +260,52 @@ viewForm ({ title, author, language } as book) previews =
         ]
 
 
+viewCategoryDropdown : Dropdown -> Maybe Category -> List Category -> Element Msg
+viewCategoryDropdown dropdown maybeCategory categories =
+    El.row [ El.width El.fill ]
+        [ El.text "Category "
+        , maybeCategory
+            |> Maybe.map .name
+            |> Maybe.withDefault "Please select a category"
+            |> El.text
+            |> El.el
+                ([ Border.color Style.black
+                 , Border.width 1
+                 , El.width El.fill
+                 , El.padding 5
+                 ]
+                    ++ (case dropdown of
+                            Closed ->
+                                [ Events.onClick ClickedSelectCategory ]
+
+                            Open hoveredCategory ->
+                                [ categories
+                                    |> List.sortBy .name
+                                    |> List.map
+                                        (\({ name } as category) ->
+                                            El.text name
+                                                |> El.el
+                                                    ([ El.width El.fill
+                                                     , El.padding 2
+                                                     , Events.onMouseEnter (HoverededCategory category)
+                                                     , Events.onClick (ClickedCategory category)
+                                                     ]
+                                                        ++ (if Just category == hoveredCategory then
+                                                                [ Background.color Style.black, Font.color Style.white ]
+
+                                                            else
+                                                                [ Background.color Style.white ]
+                                                           )
+                                                    )
+                                        )
+                                    |> El.column [ El.width El.fill, Border.width 1 ]
+                                    |> El.below
+                                ]
+                       )
+                )
+        ]
+
+
 viewPreview : String -> Element msg
 viewPreview url =
     El.el
@@ -235,7 +333,7 @@ hijack msg =
 
 
 
--- _API
+-- REST API
 
 
 encodeBook : Form -> Value
@@ -258,3 +356,19 @@ postBook ({ images } as book) =
                 |> Http.multipartBody
         , expect = Http.expectWhatever GotImages -- Http.expectJson GotImages (Decode.list Decode.string)
         }
+
+
+
+-- GRAPHQL
+
+
+categoriesQuery : SelectionSet (List Category) RootQuery
+categoriesQuery =
+    Query.categories Types.categorySelection
+
+
+getCategories : Cmd Msg
+getCategories =
+    categoriesQuery
+        |> Graphql.Http.queryRequest "/api"
+        |> Graphql.Http.send (RemoteData.fromResult >> GotCategories)
