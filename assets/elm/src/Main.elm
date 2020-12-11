@@ -37,7 +37,6 @@ main =
 
 type Model
     = NotFound Context
-    | Redirect Url Context
     | Home Context
     | Books Books.Model
     | AddBook AddBook.Model
@@ -82,11 +81,6 @@ getContext model =
 
         Translation { context } ->
             context
-
-
-getKey : Model -> Key
-getKey =
-    getContext >> .key
 
 
 updateContext : (Context -> Context) -> Model -> Model
@@ -164,7 +158,7 @@ update msg model =
                 Browser.Internal url ->
                     ( model
                     , Nav.pushUrl
-                        (getKey model)
+                        (getContext model).key
                         (Url.toString url)
                     )
 
@@ -175,7 +169,7 @@ update msg model =
             ( updateContext (\context -> { context | cred = Nothing }) model
             , Cmd.batch
                 [ Api.logout
-                , Route.replaceUrl (getKey model) Route.Home
+                , Route.replaceUrl (getContext model).key Route.Home
                 ]
             )
 
