@@ -14,6 +14,7 @@ type Route
     | Translation String
     | Books
     | AddBook
+    | AddTranslation String
 
 
 parser : Parser (Route -> a) a
@@ -24,6 +25,7 @@ parser =
         , Parser.map Translation (s "translation" </> string)
         , Parser.map Books (s "books")
         , Parser.map AddBook (s "add")
+        , Parser.map AddTranslation (s "translate" </> string)
         ]
 
 
@@ -45,14 +47,17 @@ routeToPieces route =
         AddBook ->
             ( [ "add" ], [] )
 
+        AddTranslation id ->
+            ( [ "translate", id ], [] )
+
 
 fromUrl : Url -> Maybe Route
 fromUrl url =
     Parser.parse parser url
 
 
-link : List (Attribute msg) -> Element msg -> Route -> Element msg
-link attr label route =
+link : Route -> List (Attribute msg) -> Element msg -> Element msg
+link route attr label =
     El.link attr (routeToLink label route)
 
 

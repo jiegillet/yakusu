@@ -29,7 +29,7 @@ type alias Book =
     , title : String
     , author : String
     , language : String
-    , catergory : Category
+    , category : Category
     , translations : List BookTranslation
     , pages : Dict String Page
     }

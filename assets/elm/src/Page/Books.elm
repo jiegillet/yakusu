@@ -1,18 +1,18 @@
-module Page.Books exposing (..)
+module Page.Books exposing (Model, Msg, init, update, view)
 
 import Common exposing (Context)
-import Debug
-import Dict exposing (Dict)
 import Element as El exposing (Element)
 import Element.Font as Font
 import GraphQLBook.Object
-import GraphQLBook.Object.Book as GBook exposing (category)
+import GraphQLBook.Object.Book as GBook exposing (category, language)
 import GraphQLBook.Query as Query
 import GraphQLBook.Scalar exposing (Id)
 import Graphql.Http exposing (Error)
 import Graphql.Operation exposing (RootQuery)
 import Graphql.SelectionSet as SelectionSet exposing (SelectionSet)
 import RemoteData exposing (RemoteData(..))
+import Route
+import Style
 import Types exposing (Category)
 
 
@@ -79,7 +79,12 @@ view model =
     , body =
         case model.books of
             Success books ->
-                viewBooks books
+                El.column [ El.spacing 15 ]
+                    [ Route.link Route.AddBook
+                        [ Font.underline, Font.color Style.morningBlue ]
+                        (El.text "Add a new book")
+                    , viewBooks books
+                    ]
 
             Loading ->
                 El.text "Loading, please wait"
@@ -103,36 +108,51 @@ viewBooks books =
                             , El.text author
                             ]
               }
+            , { header = El.text "Language"
+              , width = El.shrink
+              , view =
+                    \{ language } ->
+                        El.text language
+              }
             , { header = El.text "Category"
               , width = El.shrink
               , view =
                     \{ category } ->
                         El.text category.name
               }
-            , { header = El.text "Tags"
-              , width = El.shrink
-              , view =
-                    \_ ->
-                        El.column []
-                            [ El.text "TODO: Add Tags"
-                            , El.text "TODO: Add Tags"
-                            ]
-              }
             , { header = El.text "Translations available"
               , width = El.shrink
               , view =
                     \{ translations } ->
                         translations
-                            |> List.map (\{ language } -> El.text language)
+                            |> List.map
+                                (\{ id, language } ->
+                                    Route.link (Route.Translation (Types.idToString id))
+                                        [ Font.underline, Font.color Style.morningBlue ]
+                                        (El.text language)
+                                )
                             |> El.column []
               }
-            , { header = El.text "Add a Translation"
+            , { header = El.text "Translation Needed"
               , width = El.shrink
               , view =
-                    \{ language, translations } -> El.text "TODO"
+                    \{ id, language, translations } ->
+                        let
+                            languages =
+                                language :: List.map .language translations
+                        in
+                        case List.filter (\l -> List.member l languages |> not) [ "Japanese", "English" ] of
+                            [] ->
+                                El.text "None"
 
-              --  let
-              --     List.filter ()  ["Japanese", "English"]
+                            needed ->
+                                needed
+                                    |> List.map
+                                        (El.text
+                                            >> Route.link (Route.AddTranslation (Types.idToString id))
+                                                [ Font.underline, Font.color Style.morningBlue ]
+                                        )
+                                    |> El.column []
               }
             ]
                 |> List.map (\x -> { x | header = El.el [ Font.bold, El.paddingXY 5 2 ] x.header })

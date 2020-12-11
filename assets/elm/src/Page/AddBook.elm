@@ -1,4 +1,4 @@
-module Page.AddBook exposing (Model, init, update, view)
+module Page.AddBook exposing (Model, Msg, init, update, view)
 
 import Common exposing (Context)
 import Element as El exposing (Attribute, Element)
@@ -112,7 +112,13 @@ update msg model =
             ( { model | book = { modelBook | language = language } }, Cmd.none )
 
         ClickedSave book ->
-            ( model, postBook book )
+            -- TODO Full check
+            case book.category of
+                Just { id } ->
+                    ( model, postBook book id )
+
+                Nothing ->
+                    ( model, Cmd.none )
 
         Pick ->
             ( model
@@ -130,10 +136,15 @@ update msg model =
             )
 
         GotFiles file files ->
-            ( { model | hover = False, book = { modelBook | images = file :: files } }
-            , Task.perform GotPreviews <|
-                Task.sequence <|
-                    List.map File.toUrl (file :: files)
+            let
+                sortedFiles =
+                    List.sortBy File.name (file :: files)
+            in
+            ( { model | hover = False, book = { modelBook | images = sortedFiles } }
+            , sortedFiles
+                |> List.map File.toUrl
+                |> Task.sequence
+                |> Task.perform GotPreviews
             )
 
         GotPreviews urls ->
@@ -336,21 +347,22 @@ hijack msg =
 -- REST API
 
 
-encodeBook : Form -> Value
-encodeBook { title, author, language } =
+encodeBook : Form -> String -> Value
+encodeBook { title, author, language } category_id =
     Encode.object
         [ ( "title", Encode.string title )
         , ( "author", Encode.string author )
         , ( "language", Encode.string language )
+        , ( "category_id", Encode.string category_id )
         ]
 
 
-postBook : Form -> Cmd Msg
-postBook ({ images } as book) =
+postBook : Form -> String -> Cmd Msg
+postBook ({ images } as book) category_id =
     Http.post
         { url = "api/rest/books"
         , body =
-            Http.stringPart "book" (Encode.encode 0 (encodeBook book))
+            Http.stringPart "book" (Encode.encode 0 (encodeBook book category_id))
                 :: List.map (Http.filePart "pages[]") images
                 -- :: List.indexedMap (\i -> Http.filePart ("pages[" ++ String.fromInt i ++ "]")) images
                 |> Http.multipartBody

@@ -1,22 +1,17 @@
 module Main exposing (main)
 
 import Api exposing (Cred)
-import Array exposing (Array)
-import Browser exposing (Document, UrlRequest)
+import Browser
 import Browser.Dom as Dom
 import Browser.Events as Events
 import Browser.Navigation as Nav exposing (Key)
 import Common exposing (Context)
-import Debug
-import Element as El exposing (Element)
-import Element.Background as Background
-import Element.Border as Border
+import Element as El
 import Element.Font as Font
-import Element.Input as Input exposing (OptionState(..))
 import Html exposing (Html)
-import Json.Decode as Decode exposing (Decoder)
 import Json.Encode exposing (Value)
 import Page.AddBook as AddBook
+import Page.AddTranslation as AddTranslation
 import Page.Blank as Blank
 import Page.Books as Books
 import Page.Home as Home
@@ -24,12 +19,8 @@ import Page.Login as Login
 import Page.NotFound as NotFound
 import Page.Translation as Translation
 import Route exposing (Route(..))
-import Svg exposing (Svg)
-import Svg.Attributes as A
-import Svg.Events
 import Task
 import Url exposing (Url)
-import ZipList exposing (ZipList)
 
 
 main : Program Value Model Msg
@@ -50,6 +41,7 @@ type Model
     | Home Context
     | Books Books.Model
     | AddBook AddBook.Model
+    | AddTranslation AddTranslation.Model
     | Login Login.Model
     | Translation Translation.Model
 
@@ -82,6 +74,9 @@ getContext model =
         AddBook { context } ->
             context
 
+        AddTranslation { context } ->
+            context
+
         Login { context } ->
             context
 
@@ -112,6 +107,9 @@ updateContext updtateContext model =
         AddBook subModel ->
             AddBook { subModel | context = updtateContext subModel.context }
 
+        AddTranslation subModel ->
+            AddTranslation { subModel | context = updtateContext subModel.context }
+
         Login subModel ->
             Login { subModel | context = updtateContext subModel.context }
 
@@ -133,6 +131,7 @@ type Msg
     | GotLoginMsg Login.Msg
     | GotBooksMsg Books.Msg
     | GotAddBookMsg AddBook.Msg
+    | GotAddTranslationMsg AddTranslation.Msg
     | GotTranslationMsg Translation.Msg
 
 
@@ -188,6 +187,10 @@ update msg model =
             AddBook.update subMsg subModel
                 |> updateWith AddBook GotAddBookMsg
 
+        ( GotAddTranslationMsg subMsg, AddTranslation subModel ) ->
+            AddTranslation.update subMsg subModel
+                |> updateWith AddTranslation GotAddTranslationMsg
+
         ( GotLoginMsg subMsg, Login subModel ) ->
             Login.update subMsg subModel
                 |> updateWith Login GotLoginMsg
@@ -236,6 +239,10 @@ changeRouteTo maybeRoute model =
                 Just Route.AddBook ->
                     AddBook.init context
                         |> updateWith AddBook GotAddBookMsg
+
+                Just (Route.AddTranslation bookId) ->
+                    AddTranslation.init context bookId
+                        |> updateWith AddTranslation GotAddTranslationMsg
 
                 Just Route.Login ->
                     Login.init (Just Route.Home) context
@@ -308,6 +315,9 @@ view model =
 
         AddBook subModel ->
             viewPageWith GotAddBookMsg (AddBook.view subModel)
+
+        AddTranslation subModel ->
+            viewPageWith GotAddTranslationMsg (AddTranslation.view subModel)
 
         Login subModel ->
             viewPageWith GotLoginMsg (Login.view subModel)

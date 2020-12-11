@@ -1,13 +1,8 @@
--- module Page.Translation exposing (Model, Msg, init, subscriptions, update, view)
+module Page.Translation exposing (Model, Msg, init, subscriptions, update, view)
 
-
-module Page.Translation exposing (..)
-
-import Browser exposing (Document, UrlRequest)
 import Browser.Events as Events
 import Common exposing (Context)
-import Dict exposing (Dict)
-import Element as El exposing (Element, alpha)
+import Element as El exposing (Element)
 import Element.Background as Background
 import Element.Border as Border
 import Element.Events
@@ -15,22 +10,19 @@ import Element.Input as Input exposing (OptionState(..))
 import GraphQLBook.Mutation as Mutation
 import GraphQLBook.Object
 import GraphQLBook.Object.Book as GBook
-import GraphQLBook.Object.Page as GPage
-import GraphQLBook.Object.Translation as GTranslation
 import GraphQLBook.Query as Query
 import GraphQLBook.Scalar exposing (Id(..))
 import Graphql.Http exposing (Error)
 import Graphql.Operation exposing (RootMutation, RootQuery)
 import Graphql.OptionalArgument exposing (OptionalArgument(..))
 import Graphql.SelectionSet as SelectionSet exposing (SelectionSet)
-import Html exposing (Html)
 import Json.Decode as Decode exposing (Decoder)
 import RemoteData exposing (RemoteData(..))
 import Svg exposing (Svg)
 import Svg.Attributes as A
 import Svg.Events
 import Svg.Lazy
-import Types exposing (Book, Page, Translation)
+import Types exposing (Page, Translation)
 import ZipList exposing (ZipList)
 
 
@@ -175,7 +167,7 @@ update msg model =
             , Cmd.none
             )
 
-        Drew down pos ->
+        Drew _ pos ->
             ( { model
                 | drawingState = Drawing pos
                 , blob =
@@ -390,7 +382,7 @@ view model =
         case model.pages of
             Success (Just pages) ->
                 El.column [ El.spacing 5 ]
-                    [ viewImage model.mode (ZipList.current pages) model.text model.blob model.path
+                    [ viewImage model.mode (ZipList.current pages) model.blob model.path
                     , viewButtons model.mode (ZipList.current pages).id
                     , case model.mode of
                         NewTranslation _ ->
@@ -409,8 +401,8 @@ view model =
     }
 
 
-viewImage : Mode -> Page -> String -> List Position -> String -> Element Msg
-viewImage mode ({ translations } as page) text blob tempPath =
+viewImage : Mode -> Page -> List Position -> String -> Element Msg
+viewImage mode ({ translations } as page) blob tempPath =
     let
         activeColor =
             case mode of
@@ -572,7 +564,7 @@ catmullRom points =
         [ _ ] ->
             ""
 
-        p0 :: p1 :: ps ->
+        p0 :: p1 :: _ ->
             pad ( p0, p1 ) (last2 p0 p1 points) points
                 |> toCublicSpline
                 |> (++) ("M " ++ toString p1)
