@@ -37,6 +37,7 @@ main =
 
 type Model
     = NotFound Context
+    | Redirect Url Context
     | Home Context
     | Books Books.Model
     | AddBook AddBook.Model
@@ -287,8 +288,8 @@ view model =
             { title = title
             , body =
                 El.column [ El.width (El.px (getContext model |> .windowWidth)) ]
-                    [ --Common.viewHeader (getContext model) ClickedLogOut
-                      El.map toMsg body
+                    [ Common.viewHeader (getContext model) ClickedLogOut
+                    , El.map toMsg body
                     ]
                     |> El.layout [ Font.size 14 ]
                     |> (\b -> [ b ])

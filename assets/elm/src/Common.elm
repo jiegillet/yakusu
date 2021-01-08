@@ -34,49 +34,54 @@ viewHeader =
 viewHeaderHelper : { a | cred : Maybe Cred, windowWidth : Int } -> msg -> Element msg
 viewHeaderHelper { cred, windowWidth } logout =
     El.row
-        [ El.height (El.px 60)
+        [ El.height (El.px 100)
         , El.width El.fill
-        , El.padding 20
-        , El.spacing 20
-        , Background.color Style.oistRed
-        , Font.color Style.white
+        , El.paddingXY 100 0
+        , Background.color Style.grey
         ]
-        ([ El.link []
+        [ El.link []
             { url = "/"
-            , label =
-                El.image [ El.alignLeft, El.height (El.px 50) ]
-                    { src =
-                        if windowWidth >= 820 then
-                            "/images/oist-header-en.png"
+            , label = El.none
 
-                        else
-                            "/images/oist-header-en-mobile.png"
-                    , description = "OIST Logo"
-                    }
+            -- El.image [ El.alignLeft, El.height (El.px 50) ]
+            --     { src =
+            --         -- if windowWidth >= 820 then
+            --         -- "/images/oist-header-en.png"
+            --         -- else
+            --         "/images/oist-header-en-mobile.png"
+            --     , description = "OIST Logo"
+            --     }
             }
-         ]
-            ++ (case cred of
-                    Nothing ->
-                        []
+        , El.paragraph [ El.centerY ]
+            [ El.text "Yakusu"
+                |> El.el [ Font.size 36, Font.bold ]
+            , El.text " - the OIST Tedako childrens book translation interface"
+                |> El.el [ Font.size 24 ]
+            ]
+        ]
 
-                    Just c ->
-                        [ El.text ("Welcome, " ++ Api.credName c)
-                            |> El.el [ El.alignRight ]
-                        , Input.button
-                            [ El.padding 5
-                            , El.alignRight
-                            , Font.color Style.white
-                            , Border.solid
-                            , Border.color Style.white
-                            , Border.width 1
-                            ]
-                            { onPress = Just logout
-                            , label = El.text "Log out"
-                            }
-                            |> El.el [ El.centerY ]
-                        ]
-               )
-        )
+
+
+-- ++ (case cred of
+--         Nothing ->
+--             []
+--         Just c ->
+--             [ El.text ("Welcome, " ++ Api.credName c)
+--                 |> El.el [ El.alignRight ]
+--             , Input.button
+--                 [ El.padding 5
+--                 , El.alignRight
+--                 , Font.color Style.white
+--                 , Border.solid
+--                 , Border.color Style.white
+--                 , Border.width 1
+--                 ]
+--                 { onPress = Just logout
+--                 , label = El.text "Log out"
+--                 }
+--                 |> El.el [ El.centerY ]
+--             ]
+--    )
 
 
 viewFeedback : WebData String -> Element msg
