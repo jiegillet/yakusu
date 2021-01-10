@@ -287,7 +287,14 @@ view model =
         viewPageWith toMsg { title, body } =
             { title = title
             , body =
-                El.column [ El.width (El.px (getContext model |> .windowWidth)) ]
+                El.column
+                    [ El.width (El.px (getContext model).windowWidth)
+                    , Font.family
+                        [ Font.typeface "Clear Sans"
+                        , Font.sansSerif
+                        ]
+                    , Font.light
+                    ]
                     [ Common.viewHeader (getContext model) ClickedLogOut
                     , El.map toMsg body
                     ]
@@ -306,7 +313,7 @@ view model =
             viewPageWith never Home.view
 
         Books subModel ->
-            viewPageWith never (Books.view subModel)
+            viewPageWith GotBooksMsg (Books.view subModel)
 
         AddBook subModel ->
             viewPageWith GotAddBookMsg (AddBook.view subModel)

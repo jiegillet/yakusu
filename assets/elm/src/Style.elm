@@ -33,6 +33,11 @@ morningBlue =
     Element.rgb255 180 209 255
 
 
+lightBlue : Color
+lightBlue =
+    Element.rgba255 180 209 255 0.5
+
+
 dayYellow : Color
 dayYellow =
     Element.rgb255 255 238 168
