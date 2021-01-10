@@ -1,8 +1,9 @@
 module Page.Books exposing (Model, Msg, init, update, view)
 
 import Common exposing (Context)
-import Element as El exposing (Element)
+import Element as El exposing (Element, column)
 import Element.Background as Background
+import Element.Events as Events
 import Element.Font as Font
 import Element.Input as Input
 import GraphQLBook.Object
@@ -46,6 +47,7 @@ type alias Model =
     , books : RemoteData (Error (List Book)) (List Book)
     , categories : RemoteData (Error (List Category)) (List Category)
     , checkedCategories : List Category
+    , tableOrdering : ( Column, Ordering )
     }
 
 
@@ -55,9 +57,34 @@ init context =
       , books = Loading
       , categories = Loading
       , checkedCategories = []
+      , tableOrdering = ( Title, Ascending )
       }
     , Cmd.batch [ requestBooks, requestCategories ]
     )
+
+
+type Ordering
+    = Ascending
+    | Descending
+
+
+flip : Ordering -> Ordering
+flip ordering =
+    case ordering of
+        Ascending ->
+            Descending
+
+        Descending ->
+            Ascending
+
+
+type Column
+    = Title
+    | Author
+    | Language
+    | AvailableTranslation
+    | NeededTranslation
+    | Topic
 
 
 
@@ -68,6 +95,7 @@ type Msg
     = GotBooks (RemoteData (Error (List Book)) (List Book))
     | GotCategories (RemoteData (Error (List Category)) (List Category))
     | CheckedTopic Category Bool
+    | ClickedOrder Column
 
 
 update : Msg -> Model -> ( Model, Cmd msg )
@@ -87,6 +115,22 @@ update msg model =
 
                     else
                         List.filter ((/=) category) model.checkedCategories
+              }
+            , Cmd.none
+            )
+
+        ClickedOrder column ->
+            let
+                ( currentColumn, ord ) =
+                    model.tableOrdering
+            in
+            ( { model
+                | tableOrdering =
+                    if column == currentColumn then
+                        ( column, flip ord )
+
+                    else
+                        ( column, Ascending )
               }
             , Cmd.none
             )
@@ -150,14 +194,14 @@ view model =
                             )
                         ]
                     , viewCategories model.checkedCategories categories
-                    , viewBooks model.checkedCategories books
+                    , viewBooks model.checkedCategories model.tableOrdering books
                     ]
 
             ( _, Loading ) ->
-                El.text "Loading, please wait"
+                El.none
 
             ( Loading, _ ) ->
-                El.text "Loading, please wait"
+                El.none
 
             _ ->
                 El.text "Data could not be retrieved"
@@ -203,23 +247,72 @@ viewCategories checkedCategories categories =
         ]
 
 
-viewBooks : List Category -> List Book -> Element msg
-viewBooks checkedCategories books =
+viewBooks : List Category -> ( Column, Ordering ) -> List Book -> Element Msg
+viewBooks checkedCategories ( column, order ) books =
     let
         data =
-            if List.isEmpty checkedCategories then
+            (if List.isEmpty checkedCategories then
                 books
 
-            else
+             else
                 List.filter (\{ category } -> List.member category checkedCategories) books
+            )
+                |> List.sortBy (tableOrder column)
+                |> (if order == Ascending then
+                        identity
 
-        header title =
-            El.row [ El.centerY, El.paddingXY 5 15 ]
+                    else
+                        List.reverse
+                   )
+
+        tableOrder col =
+            case col of
+                Title ->
+                    .title
+
+                Author ->
+                    .author
+
+                Language ->
+                    .language
+
+                AvailableTranslation ->
+                    .translations >> List.map .language >> List.sort >> String.concat
+
+                NeededTranslation ->
+                    neededLanguages >> String.concat
+
+                Topic ->
+                    .category >> .name
+
+        neededLanguages { language, translations } =
+            let
+                languages =
+                    language :: List.map .language translations
+
+                isNeeded l =
+                    not (List.member l languages)
+            in
+            [ "English", "Japanese" ]
+                |> List.filter isNeeded
+
+        header title col =
+            El.row [ El.centerY, El.paddingXY 5 15, El.spacing 5, Events.onClick (ClickedOrder col) ]
                 [ El.paragraph [ El.width El.shrink ]
                     [ El.text title
                         |> El.el [ Font.size 20, height 65 ]
                     ]
-                , iconPlaceholder
+                , (case ( col == column, order ) of
+                    ( False, _ ) ->
+                        El.text "⇵"
+
+                    ( True, Ascending ) ->
+                        El.text "↑"
+
+                    ( True, Descending ) ->
+                        El.text "↓"
+                  )
+                    |> El.el [ width 2 ]
                 ]
 
         content i element =
@@ -244,24 +337,24 @@ viewBooks checkedCategories books =
                         iconPlaceholder
                             |> El.el [ El.centerY ]
               }
-            , { header = header "Title"
+            , { header = header "Title" Title
               , width = El.fillPortion 2
               , view =
                     \i { title } ->
                         content i (El.text title)
               }
-            , { header = header "Author"
+            , { header = header "Author" Author
               , width = El.fillPortion 2
               , view =
                     \i { author } -> content i (El.text author)
               }
-            , { header = header "Original Language"
+            , { header = header "Original Language" Language
               , width = El.fill
               , view =
                     \i { language } ->
                         content i (El.text language)
               }
-            , { header = header "Translations available"
+            , { header = header "Translations available" AvailableTranslation
               , width = El.fill
               , view =
                     \i { translations } ->
@@ -275,29 +368,20 @@ viewBooks checkedCategories books =
                             |> El.column []
                             |> content i
               }
-            , { header = header "Translation Needed"
+            , { header = header "Translation Needed" NeededTranslation
               , width = El.fill
               , view =
-                    \i { id, language, translations } ->
-                        let
-                            languages =
-                                language :: List.map .language translations
-                        in
-                        case List.filter (\l -> List.member l languages |> not) [ "Japanese", "English" ] of
-                            [] ->
-                                content i El.none
-
-                            needed ->
-                                needed
-                                    |> List.map
-                                        (El.text
-                                            >> Route.link (Route.AddTranslation (Types.idToString id))
-                                                [ Font.underline ]
-                                        )
-                                    |> El.column []
-                                    |> content i
+                    \i ({ id } as book) ->
+                        neededLanguages book
+                            |> List.map
+                                (El.text
+                                    >> Route.link (Route.AddTranslation (Types.idToString id))
+                                        [ Font.underline ]
+                                )
+                            |> El.column []
+                            |> content i
               }
-            , { header = header "Topic"
+            , { header = header "Topic" Topic
               , width = El.fill
               , view =
                     \i { category } ->
