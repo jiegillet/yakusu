@@ -89,7 +89,7 @@ update msg model =
                       }
                     , Cmd.batch
                         [ model.routeBackTo
-                            |> Maybe.withDefault Route.Home
+                            |> Maybe.withDefault Route.Books
                             |> Route.replaceUrl model.context.key
                         , Api.storeCreds cred
                         ]

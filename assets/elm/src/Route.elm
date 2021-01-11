@@ -9,8 +9,7 @@ import Url.Parser.Query as Query
 
 
 type Route
-    = Home
-    | Login
+    = Login
     | Translation String
     | Books
     | AddBook
@@ -20,10 +19,9 @@ type Route
 parser : Parser (Route -> a) a
 parser =
     oneOf
-        [ Parser.map Home Parser.top
+        [ Parser.map Books Parser.top
         , Parser.map Login (s "login")
         , Parser.map Translation (s "translation" </> string)
-        , Parser.map Books (s "books")
         , Parser.map AddBook (s "add")
         , Parser.map AddTranslation (s "translate" </> string)
         ]
@@ -32,7 +30,7 @@ parser =
 routeToPieces : Route -> ( List String, List QueryParameter )
 routeToPieces route =
     case route of
-        Home ->
+        Books ->
             ( [], [] )
 
         Login ->
@@ -40,9 +38,6 @@ routeToPieces route =
 
         Translation id ->
             ( [ "translation", id ], [] )
-
-        Books ->
-            ( [ "books" ], [] )
 
         AddBook ->
             ( [ "add" ], [] )

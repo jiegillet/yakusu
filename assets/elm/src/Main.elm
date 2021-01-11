@@ -14,7 +14,6 @@ import Page.AddBook as AddBook
 import Page.AddTranslation as AddTranslation
 import Page.Blank as Blank
 import Page.Books as Books
-import Page.Home as Home
 import Page.Login as Login
 import Page.NotFound as NotFound
 import Page.Translation as Translation
@@ -38,7 +37,6 @@ main =
 type Model
     = NotFound Context
     | Redirect Url Context
-    | Home Context
     | Books Books.Model
     | AddBook AddBook.Model
     | AddTranslation AddTranslation.Model
@@ -65,9 +63,6 @@ getContext model =
         Redirect _ context ->
             context
 
-        Home context ->
-            context
-
         Books { context } ->
             context
 
@@ -92,9 +87,6 @@ updateContext updtateContext model =
 
         Redirect url context ->
             Redirect url (updtateContext context)
-
-        Home context ->
-            Home (updtateContext context)
 
         Books subModel ->
             Books { subModel | context = updtateContext subModel.context }
@@ -170,7 +162,7 @@ update msg model =
             ( updateContext (\context -> { context | cred = Nothing }) model
             , Cmd.batch
                 [ Api.logout
-                , Route.replaceUrl (getContext model).key Route.Home
+                , Route.replaceUrl (getContext model).key Route.Books
                 ]
             )
 
@@ -224,9 +216,6 @@ changeRouteTo maybeRoute model =
                 Nothing ->
                     ( NotFound context, Cmd.none )
 
-                Just Route.Home ->
-                    ( Home context, Cmd.none )
-
                 Just Route.Books ->
                     Books.init context
                         |> updateWith Books GotBooksMsg
@@ -240,7 +229,7 @@ changeRouteTo maybeRoute model =
                         |> updateWith AddTranslation GotAddTranslationMsg
 
                 Just Route.Login ->
-                    Login.init (Just Route.Home) context
+                    Login.init (Just Route.Books) context
                         |> updateWith Login GotLoginMsg
 
                 Just (Route.Translation id) ->
@@ -308,9 +297,6 @@ view model =
 
         Redirect _ _ ->
             viewPageWith never Blank.view
-
-        Home _ ->
-            viewPageWith never Home.view
 
         Books subModel ->
             viewPageWith GotBooksMsg (Books.view subModel)
