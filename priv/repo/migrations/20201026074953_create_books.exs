@@ -5,7 +5,6 @@ defmodule CdcBooks.Repo.Migrations.CreateBooks do
     create table(:books) do
       add :title, :string
       add :author, :string
-      add :language, :string
       add :notes, :string
       add :translator, :string
       add :original_id, references(:books, on_delete: :nothing)

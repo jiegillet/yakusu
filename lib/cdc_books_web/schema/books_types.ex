@@ -1,14 +1,15 @@
 defmodule CdcBooksWeb.Schema.BooksTypes do
   use Absinthe.Schema.Notation
   alias CdcBooksWeb.Resolvers
-  alias CdcBooks.Books
 
   @desc "A book"
   object :book do
     field :id, non_null(:id)
     field :title, non_null(:string)
     field :author, non_null(:string)
-    field :language, non_null(:string)
+    field :language, non_null(:language) do
+      resolve(&Resolvers.Books.get_language/3)
+    end
     field :translator, :string
     field :notes, :string
     field :category, non_null(:category)

@@ -12,7 +12,18 @@
 
 alias CdcBooks.Books
 
-categories = ["Transportation", "Food", "Sea", "Dinosaurs", "All about me"]
+CdcBooks.Repo.delete_all(Books.Category)
+categories = ["Transportation", "Food", "Sea", "Dinosaurs", "All about me", "Friendship"]
 
 categories
 |> Enum.each(&Books.create_category(%{name: &1}))
+
+# Adding languages
+CdcBooks.Repo.delete_all(CdcBooks.Languages.Language)
+{:ok, languages} = File.read("priv/repo/language.json")
+
+languages
+|> Jason.decode!()
+|> Enum.each(fn {id, language} ->
+  CdcBooks.Languages.create_language(%{id: id, language: language})
+end)

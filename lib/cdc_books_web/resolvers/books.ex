@@ -1,6 +1,7 @@
 defmodule CdcBooksWeb.Resolvers.Books do
   alias CdcBooks.Books
   alias CdcBooks.Books.Book
+  alias CdcBooks.Languages
 
   def list_books(_parent, _args, _resolution) do
     {:ok, Books.list_original_books()}
@@ -18,6 +19,10 @@ defmodule CdcBooksWeb.Resolvers.Books do
       book ->
         {:ok, book}
     end
+  end
+
+  def get_language(%Book{} = book, _args, _resolution) do
+    {:ok, Languages.get_language!(book.language_id)}
   end
 
   def list_book_translations(%Book{} = book, _args, _resolution) do
