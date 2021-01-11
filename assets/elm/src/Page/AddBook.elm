@@ -1,23 +1,25 @@
 module Page.AddBook exposing (Model, Msg, init, update, view)
 
-import Common exposing (Context)
+import Common exposing (Context, height, width)
 import Element as El exposing (Attribute, Element)
 import Element.Background as Background
 import Element.Border as Border
 import Element.Events as Events
 import Element.Font as Font
-import Element.Input as Input
+import Element.Input as Input exposing (OptionState(..))
 import File exposing (File)
 import File.Select as Select
 import GraphQLBook.Query as Query
 import Graphql.Http exposing (Error)
 import Graphql.Operation exposing (RootQuery)
 import Graphql.SelectionSet exposing (SelectionSet)
+import Html.Attributes exposing (lang)
 import Html.Events exposing (onClick)
 import Http
 import Json.Decode as Decode exposing (Decoder)
 import Json.Encode as Encode exposing (Value)
 import RemoteData exposing (RemoteData(..))
+import Route
 import Style
 import Task
 import Types exposing (Category)
@@ -51,7 +53,7 @@ init context =
 type alias Form =
     { title : String
     , author : String
-    , language : String
+    , language : Language
     , category : Maybe Category
     , images : List File
     , dropdown : Dropdown
@@ -62,7 +64,7 @@ emptyBook : Form
 emptyBook =
     { title = ""
     , author = ""
-    , language = ""
+    , language = Japanese
     , images = []
     , category = Nothing
     , dropdown = Closed
@@ -74,25 +76,31 @@ type Dropdown
     | Open (Maybe Category)
 
 
+type Language
+    = Japanese
+    | English
+    | Other String
 
--- _UPDATE
+
+
+-- UPDATE
 
 
 type Msg
     = InputTitle String
     | InputAuthor String
-    | InputLanguage String
+    | InputLanguage Language
     | ClickedSave Form
     | Pick
     | DragEnter
     | DragLeave
     | GotFiles File (List File)
-    | GotPreviews (List String)
+    | GotPreviews (List ( String, String ))
     | GotImages (Result Http.Error ()) --(List String))
     | GotCategories (RemoteData (Error (List Category)) (List Category))
-    | ClickedSelectCategory
-    | HoverededCategory Category
-    | ClickedCategory Category
+      -- | ClickedSelectCategory
+      -- | HoverededCategory Category
+    | ClickedCategory Category Bool
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -144,11 +152,12 @@ update msg model =
             , sortedFiles
                 |> List.map File.toUrl
                 |> Task.sequence
+                |> Task.map (List.map2 Tuple.pair (List.map File.name sortedFiles))
                 |> Task.perform GotPreviews
             )
 
         GotPreviews urls ->
-            ( { model | previews = urls }
+            ( { model | previews = List.map Tuple.second (List.sort urls) }
             , Cmd.none
             )
 
@@ -163,26 +172,23 @@ update msg model =
         GotCategories result ->
             ( { model | categories = result }, Cmd.none )
 
-        ClickedSelectCategory ->
-            ( { model
-                | book =
-                    { modelBook
-                        | dropdown =
-                            case modelBook.dropdown of
-                                Closed ->
-                                    Open Nothing
-
-                                _ ->
-                                    Closed
-                    }
-              }
-            , Cmd.none
-            )
-
-        HoverededCategory category ->
-            ( { model | book = { modelBook | dropdown = Open (Just category) } }, Cmd.none )
-
-        ClickedCategory category ->
+        -- ClickedSelectCategory ->
+        --     ( { model
+        --         | book =
+        --             { modelBook
+        --                 | dropdown =
+        --                     case modelBook.dropdown of
+        --                         Closed ->
+        --                             Open Nothing
+        --                         _ ->
+        --                             Closed
+        --             }
+        --       }
+        --     , Cmd.none
+        --     )
+        -- HoverededCategory category ->
+        --     ( { model | book = { modelBook | dropdown = Open (Just category) } }, Cmd.none )
+        ClickedCategory category _ ->
             ( { model | book = { modelBook | dropdown = Closed, category = Just category } }, Cmd.none )
 
 
@@ -190,138 +196,180 @@ update msg model =
 -- _VIEW
 
 
+iconPlaceholder : Element msg
+iconPlaceholder =
+    El.el [ width 25, height 25, Background.color Style.nightBlue ] El.none
+        |> El.el [ El.padding 5 ]
+
+
 view : Model -> { title : String, body : Element Msg }
 view model =
-    { title = "List of Books"
+    { title = "Add an Original Book"
     , body =
         case model.categories of
             Success categories ->
-                viewForm model.book model.previews categories
-                    |> El.el [ El.padding 30 ]
+                El.column
+                    [ El.spacing 25
+                    , El.paddingXY 20 50
+                    , width 1000
+                    , El.centerX
+                    ]
+                    [ Route.link Route.Books
+                        [ Font.color Style.grey
+                        , Border.color Style.grey
+                        , Border.width 2
+                        ]
+                        (El.row [ El.paddingXY 10 5 ]
+                            [ iconPlaceholder
+                            , El.text "Back to Mainpage"
+                            ]
+                        )
+                    , viewForm model.book model.previews categories
+                    ]
 
             _ ->
                 El.text "There was a problem retrieving data."
     }
 
 
-gray : El.Color
-gray =
-    El.rgb255 200 200 200
-
-
 viewForm : Form -> List String -> List Category -> Element Msg
 viewForm ({ title, author, language, category, dropdown } as book) previews categories =
+    El.column [ El.spacing 10, El.width El.fill ]
+        [ El.text "To add a new book, please fill the following information and upload photos of the pages"
+            |> El.el [ Background.color Style.grey, El.width El.fill, El.padding 10 ]
+        , viewLanguageChoice language
+        , viewTextInput title "Title" InputTitle
+        , viewTextInput author "Author(s)" InputAuthor
+        , viewCategories category categories
+        , El.row [ El.width El.fill, El.spaceEvenly ]
+            [ viewPageDownload previews
+            , Input.button
+                [ Font.color Style.nightBlue
+                , Border.color Style.nightBlue
+                , Border.width 2
+                , El.alignBottom
+                ]
+                { onPress =
+                    ClickedSave book
+                        |> Just
+                , label =
+                    El.row [ El.paddingXY 10 5 ]
+                        [ El.text "Add Book"
+                        , iconPlaceholder
+                        ]
+                }
+            ]
+        ]
+
+
+viewTextInput : String -> String -> (String -> Msg) -> Element Msg
+viewTextInput text label message =
+    Input.text [ Border.color Style.nightBlue, Border.rounded 0, Border.width 2, El.spacing 0, width 400 ]
+        { onChange = message
+        , text = text
+        , placeholder = Nothing
+        , label =
+            Input.labelLeft [ El.height El.fill, Background.color Style.nightBlue ]
+                (El.text label
+                    |> El.el
+                        [ El.centerY
+                        , width 100
+                        , El.padding 10
+                        ]
+                )
+        }
+
+
+viewLanguageChoice : Language -> Element Msg
+viewLanguageChoice language =
+    Input.radioRow [ El.spacing 30 ]
+        { onChange = InputLanguage
+        , label =
+            Input.labelLeft [ El.paddingEach { top = 0, bottom = 0, left = 0, right = 30 } ]
+                (El.text "Original Language"
+                    |> El.el
+                        [ Background.color Style.nightBlue
+                        , El.padding 10
+                        ]
+                )
+        , selected = Just language
+        , options =
+            [ Input.option Japanese (El.text "Japanese")
+            , Input.option English (El.text "English")
+            , Input.option (Other "?") (El.text "Other...")
+            ]
+        }
+
+
+viewCategories : Maybe Category -> List Category -> Element Msg
+viewCategories category categories =
     let
-        place text =
-            text
-                |> El.text
-                |> Input.placeholder []
-                |> Just
+        viewCategory ({ name } as cat) =
+            Input.checkbox [ width 150, height 25 ]
+                { onChange = ClickedCategory cat
+                , checked = Just cat == category
+                , icon =
+                    \checked ->
+                        El.text name
+                            |> El.el [ El.centerX, El.centerY, Font.size 18 ]
+                            |> El.el
+                                [ width 150
+                                , height 25
+                                , if checked then
+                                    Background.color Style.nightBlue
+
+                                  else
+                                    Background.color Style.grey
+                                ]
+                , label = Input.labelHidden name
+                }
     in
-    El.column [ El.spacing 10 ]
-        [ Input.text []
-            { onChange = InputTitle
-            , text = title
-            , placeholder = place "つまらない物語"
-            , label = Input.labelAbove [] (El.text "Original Title")
-            }
-        , Input.text []
-            { onChange = InputAuthor
-            , text = author
-            , placeholder = place "田中太郎"
-            , label = Input.labelAbove [] (El.text "Author(s)")
-            }
-        , Input.text []
-            { onChange = InputLanguage
-            , text = language
-            , placeholder = place "日本語"
-            , label = Input.labelAbove [] (El.text "Original Language")
-            }
-        , viewCategoryDropdown dropdown category categories
+    El.column [ El.spacing 20 ]
+        [ El.row [ Background.color Style.grey, width 250, height 45, Font.size 20 ]
+            [ iconPlaceholder
+            , El.text "Select Topic"
+            ]
+        , categories
+            |> List.map viewCategory
+            |> El.wrappedRow [ El.paddingXY 40 0, El.spacing 10 ]
+        ]
+
+
+viewPageDownload : List String -> Element Msg
+viewPageDownload previews =
+    El.column [ El.spacing 20 ]
+        [ El.row [ Background.color Style.grey, width 250, height 45, Font.size 20 ]
+            [ iconPlaceholder
+            , El.text "Add Pages"
+            ]
         , El.column
-            [ El.width (El.px 400)
-            , El.height El.shrink
-            , Border.dashed
-            , Border.color gray
+            [ width 700
+            , El.height (El.minimum 200 El.shrink)
+            , Border.color Style.nightBlue
             , Border.width 2
-            , Border.rounded 10
             , hijackOn "dragenter" (Decode.succeed DragEnter)
             , hijackOn "dragover" (Decode.succeed DragEnter)
             , hijackOn "dragleave" (Decode.succeed DragLeave)
             , hijackOn "drop" dropDecoder
             ]
-            [ Input.button [ El.centerX, El.centerY, El.padding 20 ]
+            [ Input.button [ El.centerX, El.centerY, El.padding 15 ]
                 { onPress = Just Pick
                 , label =
                     El.text "Upload or Drag Images..."
-                        |> El.el [ Background.color gray, El.padding 5 ]
+                        |> El.el [ Background.color Style.grey, El.padding 5 ]
                 }
             , List.map viewPreview previews
-                |> El.wrappedRow [ El.width El.fill, El.spacing 3, El.centerX ]
-                |> El.el [ El.padding 20, El.centerX, El.centerY ]
+                |> El.wrappedRow [ El.spacingXY 10 30, El.centerX, El.paddingXY 38 10 ]
             ]
-        , Input.button []
-            { onPress =
-                ClickedSave book
-                    |> Just
-            , label =
-                El.text "Add Book"
-                    |> El.el [ Background.color gray, El.padding 5 ]
-            }
-        ]
-
-
-viewCategoryDropdown : Dropdown -> Maybe Category -> List Category -> Element Msg
-viewCategoryDropdown dropdown maybeCategory categories =
-    El.row [ El.width El.fill ]
-        [ El.text "Category "
-        , maybeCategory
-            |> Maybe.map .name
-            |> Maybe.withDefault "Please select a category"
-            |> El.text
-            |> El.el
-                ([ Border.color Style.black
-                 , Border.width 1
-                 , El.width El.fill
-                 , El.padding 5
-                 ]
-                    ++ (case dropdown of
-                            Closed ->
-                                [ Events.onClick ClickedSelectCategory ]
-
-                            Open hoveredCategory ->
-                                [ categories
-                                    |> List.sortBy .name
-                                    |> List.map
-                                        (\({ name } as category) ->
-                                            El.text name
-                                                |> El.el
-                                                    ([ El.width El.fill
-                                                     , El.padding 2
-                                                     , Events.onMouseEnter (HoverededCategory category)
-                                                     , Events.onClick (ClickedCategory category)
-                                                     ]
-                                                        ++ (if Just category == hoveredCategory then
-                                                                [ Background.color Style.black, Font.color Style.white ]
-
-                                                            else
-                                                                [ Background.color Style.white ]
-                                                           )
-                                                    )
-                                        )
-                                    |> El.column [ El.width El.fill, Border.width 1 ]
-                                    |> El.below
-                                ]
-                       )
-                )
+            |> El.el [ El.paddingEach { left = 60, right = 0, top = 0, bottom = 0 } ]
         ]
 
 
 viewPreview : String -> Element msg
 viewPreview url =
     El.el
-        [ El.width (El.px 60)
-        , El.height (El.px 60)
+        [ width 80
+        , height 80
         , Background.image url
         ]
         El.none
@@ -344,7 +392,62 @@ hijack msg =
 
 
 
--- REST API
+-- viewCategoryDropdown : Dropdown -> Maybe Category -> List Category -> Element Msg
+-- viewCategoryDropdown dropdown maybeCategory categories =
+--     El.row [ El.width El.fill ]
+--         [ El.text "Category "
+--         , maybeCategory
+--             |> Maybe.map .name
+--             |> Maybe.withDefault "Please select a category"
+--             |> El.text
+--             |> El.el
+--                 ([ Border.color Style.black
+--                  , Border.width 1
+--                  , El.width El.fill
+--                  , El.padding 5
+--                  ]
+--                     ++ (case dropdown of
+--                             Closed ->
+--                                 [ Events.onClick ClickedSelectCategory ]
+--                             Open hoveredCategory ->
+--                                 [ categories
+--                                     |> List.sortBy .name
+--                                     |> List.map
+--                                         (\({ name } as category) ->
+--                                             El.text name
+--                                                 |> El.el
+--                                                     ([ El.width El.fill
+--                                                      , El.padding 2
+--                                                      , Events.onMouseEnter (HoverededCategory category)
+--                                                      , Events.onClick (ClickedCategory category)
+--                                                      ]
+--                                                         ++ (if Just category == hoveredCategory then
+--                                                                 [ Background.color Style.black, Font.color Style.white ]
+--                                                             else
+--                                                                 [ Background.color Style.white ]
+--                                                            )
+--                                                     )
+--                                         )
+--                                     |> El.column [ El.width El.fill, Border.width 1 ]
+--                                     |> El.below
+--                                 ]
+--                        )
+--                 )
+--         ]
+-- API
+
+
+encodeLanguage : Language -> Value
+encodeLanguage language =
+    case language of
+        English ->
+            Encode.string "en_US"
+
+        Japanese ->
+            Encode.string "ja"
+
+        Other lan ->
+            Encode.string lan
 
 
 encodeBook : Form -> String -> Value
@@ -352,7 +455,7 @@ encodeBook { title, author, language } category_id =
     Encode.object
         [ ( "title", Encode.string title )
         , ( "author", Encode.string author )
-        , ( "language", Encode.string language )
+        , ( "language", encodeLanguage language )
         , ( "category_id", Encode.string category_id )
         ]
 

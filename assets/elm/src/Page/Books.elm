@@ -1,6 +1,6 @@
 module Page.Books exposing (Model, Msg, init, update, view)
 
-import Common exposing (Context)
+import Common exposing (Context, height, width)
 import Element as El exposing (Element, column)
 import Element.Background as Background
 import Element.Events as Events
@@ -140,16 +140,6 @@ update msg model =
 -- VIEW
 
 
-width : Int -> El.Attribute msg
-width =
-    El.px >> El.width
-
-
-height : Int -> El.Attribute msg
-height =
-    El.px >> El.height
-
-
 iconPlaceholder : Element msg
 iconPlaceholder =
     El.el [ width 25, height 25, Background.color Style.nightBlue ] El.none
@@ -160,13 +150,12 @@ view : Model -> { title : String, body : Element Msg }
 view model =
     { title = "List of Books"
     , body =
-        (case ( model.books, model.categories ) of
+        case ( model.books, model.categories ) of
             ( Success books, Success categories ) ->
                 El.column
                     [ El.spacing 25
                     , El.paddingXY 20 50
                     , width 1000
-                    , El.height El.fill
                     , El.centerX
                     ]
                     [ El.paragraph [ Font.size 24, El.paddingXY 0 30 ]
@@ -205,11 +194,6 @@ view model =
 
             _ ->
                 El.text "Data could not be retrieved"
-        )
-            |> El.el
-                [ width 1200
-                , El.height El.fill
-                ]
     }
 
 

@@ -432,7 +432,7 @@ viewImage mode ({ translations } as page) blob tempPath =
         image pageId =
             Svg.image
                 [ A.width "800"
-                , A.height "800"
+                , A.height "600"
                 , A.xlinkHref ("/api/rest/pages/" ++ pageId)
                 ]
                 []

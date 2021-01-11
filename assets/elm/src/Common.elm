@@ -1,4 +1,4 @@
-module Common exposing (Context, showMonth, showWeekday, viewErrors, viewFeedback, viewHeader)
+module Common exposing (Context, height, showMonth, showWeekday, viewErrors, viewFeedback, viewHeader, width)
 
 import Api exposing (Cred)
 import Browser.Navigation exposing (Key)
@@ -24,6 +24,16 @@ type alias Context =
 
 
 --VIEW
+
+
+width : Int -> El.Attribute msg
+width =
+    El.px >> El.width
+
+
+height : Int -> El.Attribute msg
+height =
+    El.px >> El.height
 
 
 viewHeader : Context -> msg -> Element msg
