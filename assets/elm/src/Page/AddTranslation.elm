@@ -19,7 +19,7 @@ import Graphql.SelectionSet as SelectionSet exposing (SelectionSet)
 import RemoteData exposing (RemoteData(..))
 import Route
 import Style
-import Types
+import Types exposing (Language)
 
 
 
@@ -30,8 +30,7 @@ type alias Model =
     { context : Context
     , book : RemoteData (Error (Maybe Book)) (Maybe Book)
     , form : Form
-
-    -- , languages : RemoteData (Error (List Language)) (List Language)
+    , languages : RemoteData (Error (List Language)) (List Language)
     }
 
 
@@ -40,22 +39,19 @@ init context bookId =
     ( { context = context
       , book = Loading
       , form = emptyForm
-
-      --   , languages = Loading
+      , languages = Loading
       }
-      -- , getlanguages
-    , getBook bookId
+    , Cmd.batch [ getBook bookId, getlanguages ]
     )
 
 
 type alias Form =
     { title : String
     , author : String
-    , language : String
+    , language : Maybe Language
     , translator : String
     , notes : String
 
-    -- , language : Maybe Language
     -- , dropdown : Dropdown
     }
 
@@ -64,11 +60,10 @@ emptyForm : Form
 emptyForm =
     { title = ""
     , author = ""
-    , language = ""
+    , language = Nothing
     , translator = ""
     , notes = ""
 
-    -- , language = Nothing
     -- , dropdown = Closed
     }
 
@@ -83,7 +78,7 @@ type alias Book =
     { id : String
     , title : String
     , author : String
-    , language : String
+    , language : Language
     }
 
 
@@ -94,16 +89,16 @@ type alias Book =
 type Msg
     = InputTitle String
     | InputAuthor String
-    | InputLanguage String
+    | InputLanguage Language
     | InputTranslator String
     | InputNotes String
     | ClickedStartTranslation Id Form
     | GotBook (RemoteData (Error (Maybe Book)) (Maybe Book))
     | GotTranslationBookId (RemoteData (Error Id) Id)
+    | Gotlanguages (RemoteData (Error (List Language)) (List Language))
 
 
 
--- | Gotlanguages (RemoteData (Error (List Language)) (List Language))
 -- | ClickedSelectLanguage
 -- | HoverededLanguage Language
 -- | ClickedLanguage Language
@@ -123,7 +118,7 @@ update msg model =
             ( { model | form = { modelForm | author = author } }, Cmd.none )
 
         InputLanguage language ->
-            ( { model | form = { modelForm | language = language } }, Cmd.none )
+            ( { model | form = { modelForm | language = Just language } }, Cmd.none )
 
         InputTranslator translator ->
             ( { model | form = { modelForm | translator = translator } }, Cmd.none )
@@ -145,10 +140,11 @@ update msg model =
                 _ ->
                     ( model, Cmd.none )
 
+        Gotlanguages result ->
+            ( { model | languages = result }, Cmd.none )
 
 
--- Gotlanguages result ->
---     ( { model | languages = result }, Cmd.none )
+
 -- ClickedSelectLanguage ->
 --     ( { model
 --         | book =
@@ -174,13 +170,13 @@ view : Model -> { title : String, body : Element Msg }
 view model =
     { title = "List of Books"
     , body =
-        case model.book of
-            Success (Just book) ->
-                viewForm model.form book
+        case ( model.book, model.languages ) of
+            ( Success (Just book), Success languages ) ->
+                viewForm model.form languages book
                     |> El.el [ El.padding 30 ]
 
             _ ->
-                El.text "There was an issue retrieving the original book"
+                El.text "There was an issue retrieving the data"
     }
 
 
@@ -189,8 +185,8 @@ gray =
     El.rgb255 200 200 200
 
 
-viewForm : Form -> Book -> Element Msg
-viewForm ({ title, author, language, translator, notes } as form) book =
+viewForm : Form -> List Language -> Book -> Element Msg
+viewForm ({ title, author, language, translator, notes } as form) languages book =
     let
         place text =
             text
@@ -199,12 +195,7 @@ viewForm ({ title, author, language, translator, notes } as form) book =
                 |> Just
     in
     El.column [ El.spacing 10 ]
-        [ Input.text []
-            { onChange = InputLanguage
-            , text = language
-            , placeholder = place "English"
-            , label = Input.labelAbove [] (El.text "Language of Translation")
-            }
+        [ viewLanguageChoice language languages
         , Input.text []
             { onChange = InputTranslator
             , text = translator
@@ -241,6 +232,25 @@ viewForm ({ title, author, language, translator, notes } as form) book =
                     |> El.el [ Background.color gray, El.padding 5 ]
             }
         ]
+
+
+viewLanguageChoice : Maybe Language -> List Language -> Element Msg
+viewLanguageChoice language languages =
+    Input.radioRow [ El.spacing 30 ]
+        { onChange = InputLanguage
+        , label =
+            Input.labelLeft [ El.paddingEach { top = 0, bottom = 0, left = 0, right = 30 } ]
+                (El.text "Language of Translation"
+                    |> El.el
+                        [ Background.color Style.nightBlue
+                        , El.padding 10
+                        ]
+                )
+        , selected = language
+        , options =
+            languages
+                |> List.map (\lan -> Input.option lan (El.text lan.language))
+        }
 
 
 
@@ -287,15 +297,18 @@ viewForm ({ title, author, language, translator, notes } as form) book =
 --                 )
 --         ]
 -- GRAPHQL
--- languagesQuery : SelectionSet (List Language) RootQuery
--- languagesQuery =
---     Query.languages Types.languageSelection
--- getlanguages : Cmd Msg
--- getlanguages =
---     languagesQuery
---         |> Graphql.Http.queryRequest "/api"
---         |> Graphql.Http.send (RemoteData.fromResult >> Gotlanguages)
--- GRAPHQL
+
+
+languagesQuery : SelectionSet (List Language) RootQuery
+languagesQuery =
+    Query.languages Types.languageSelection
+
+
+getlanguages : Cmd Msg
+getlanguages =
+    languagesQuery
+        |> Graphql.Http.queryRequest "/api"
+        |> Graphql.Http.send (RemoteData.fromResult >> Gotlanguages)
 
 
 booksQuery : String -> SelectionSet (Maybe Book) RootQuery
@@ -309,7 +322,7 @@ bookSelection =
         (SelectionSet.map Types.idToString GBook.id)
         GBook.title
         GBook.author
-        GBook.language
+        (GBook.language Types.languageSelection)
 
 
 getBook : String -> Cmd Msg
@@ -327,7 +340,7 @@ saveBookMutation bookId { title, author, language, translator, notes } =
     in
     Mutation.createBook modifyOptional
         { author = author
-        , language = language
+        , languageId = Maybe.withDefault "" (Maybe.map .id language)
         , originalId = bookId
         , title = title
         , translator = translator

@@ -16,7 +16,7 @@ import Graphql.SelectionSet as SelectionSet exposing (SelectionSet)
 import RemoteData exposing (RemoteData(..))
 import Route
 import Style
-import Types exposing (Category)
+import Types exposing (Category, Language)
 
 
 
@@ -27,7 +27,7 @@ type alias Book =
     { id : Id
     , title : String
     , author : String
-    , language : String
+    , language : Language
     , category : Category
     , translations : List BookTranslation
     }
@@ -37,7 +37,7 @@ type alias BookTranslation =
     { id : Id
     , title : String
     , author : String
-    , language : String
+    , language : Language
     , translator : String
     }
 
@@ -258,10 +258,10 @@ viewBooks checkedCategories ( column, order ) books =
                     .author
 
                 Language ->
-                    .language
+                    .language >> .language
 
                 AvailableTranslation ->
-                    .translations >> List.map .language >> List.sort >> String.concat
+                    .translations >> List.map (.language >> .language) >> List.sort >> String.concat
 
                 NeededTranslation ->
                     neededLanguages >> String.concat
@@ -272,7 +272,8 @@ viewBooks checkedCategories ( column, order ) books =
         neededLanguages { language, translations } =
             let
                 languages =
-                    language :: List.map .language translations
+                    (language :: List.map .language translations)
+                        |> List.map .language
 
                 isNeeded l =
                     not (List.member l languages)
@@ -336,7 +337,7 @@ viewBooks checkedCategories ( column, order ) books =
               , width = El.fill
               , view =
                     \i { language } ->
-                        content i (El.text language)
+                        content i (El.text language.language)
               }
             , { header = header "Translations available" AvailableTranslation
               , width = El.fill
@@ -347,7 +348,7 @@ viewBooks checkedCategories ( column, order ) books =
                                 (\{ id, language } ->
                                     Route.link (Route.Translation (Types.idToString id))
                                         [ Font.underline ]
-                                        (El.text language)
+                                        (El.text language.language)
                                 )
                             |> El.column []
                             |> content i
@@ -390,7 +391,7 @@ bookSelection =
         GBook.id
         GBook.title
         GBook.author
-        GBook.language
+        (GBook.language Types.languageSelection)
         (GBook.category Types.categorySelection)
         (GBook.bookTranslations bookTranslationSelection)
 
@@ -401,7 +402,7 @@ bookTranslationSelection =
         GBook.id
         GBook.title
         GBook.author
-        GBook.language
+        (GBook.language Types.languageSelection)
         (SelectionSet.withDefault "" GBook.translator)
 
 

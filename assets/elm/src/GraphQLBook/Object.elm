@@ -13,6 +13,10 @@ type Category
     = Category
 
 
+type Language
+    = Language
+
+
 type Page
     = Page
 

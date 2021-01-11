@@ -43,9 +43,11 @@ id =
     Object.selectionForField "ScalarCodecs.Id" "id" [] (GraphQLBook.ScalarCodecs.codecs |> GraphQLBook.Scalar.unwrapCodecs |> .codecId |> .decoder)
 
 
-language : SelectionSet String GraphQLBook.Object.Book
-language =
-    Object.selectionForField "String" "language" [] Decode.string
+language :
+    SelectionSet decodesTo GraphQLBook.Object.Language
+    -> SelectionSet decodesTo GraphQLBook.Object.Book
+language object_ =
+    Object.selectionForCompositeField "language" [] object_ identity
 
 
 notes : SelectionSet (Maybe String) GraphQLBook.Object.Book

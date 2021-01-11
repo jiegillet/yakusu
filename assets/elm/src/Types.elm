@@ -5,6 +5,7 @@ import Dict.Extra as Dict
 import GraphQLBook.Object
 import GraphQLBook.Object.Book as GBook
 import GraphQLBook.Object.Category as GCategory
+import GraphQLBook.Object.Language as GLanguage
 import GraphQLBook.Object.Page as GPage
 import GraphQLBook.Object.Translation as GTranslation
 import GraphQLBook.Query as Query
@@ -28,7 +29,7 @@ type alias Book =
     { id : String
     , title : String
     , author : String
-    , language : String
+    , language : Language
     , category : Category
     , translations : List BookTranslation
     , pages : Dict String Page
@@ -39,11 +40,15 @@ type alias Category =
     { id : String, name : String }
 
 
+type alias Language =
+    { id : String, language : String }
+
+
 type alias BookTranslation =
     { id : String
     , title : String
     , author : String
-    , language : String
+    , language : Language
     , translator : String
     , notes : String
     , translations : Dict String Translation
@@ -75,7 +80,7 @@ bookSelection =
         (SelectionSet.map idToString GBook.id)
         GBook.title
         GBook.author
-        GBook.language
+        (GBook.language languageSelection)
         (GBook.category categorySelection)
         (GBook.bookTranslations bookTranslationSelection)
         (SelectionSet.map toDict (GBook.pages pageSelection))
@@ -87,7 +92,7 @@ bookTranslationSelection =
         (SelectionSet.map idToString GBook.id)
         GBook.title
         GBook.author
-        GBook.language
+        (GBook.language languageSelection)
         (SelectionSet.withDefault "" GBook.translator)
         (SelectionSet.withDefault "" GBook.notes)
         (SelectionSet.map toDict (GBook.translations translationSelection))
@@ -106,6 +111,13 @@ categorySelection =
     SelectionSet.map2 Category
         (SelectionSet.map idToString GCategory.id)
         GCategory.name
+
+
+languageSelection : SelectionSet Language GraphQLBook.Object.Language
+languageSelection =
+    SelectionSet.map2 Language
+        GLanguage.id
+        GLanguage.language
 
 
 translationSelection : SelectionSet Translation GraphQLBook.Object.Translation

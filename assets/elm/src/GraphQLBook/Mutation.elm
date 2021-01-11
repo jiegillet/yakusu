@@ -27,7 +27,7 @@ type alias CreateBookOptionalArguments =
 
 type alias CreateBookRequiredArguments =
     { author : String
-    , language : String
+    , languageId : String
     , originalId : GraphQLBook.ScalarCodecs.Id
     , title : String
     , translator : String
@@ -50,7 +50,7 @@ createBook fillInOptionals requiredArgs object_ =
             [ Argument.optional "id" filledInOptionals.id (GraphQLBook.ScalarCodecs.codecs |> GraphQLBook.Scalar.unwrapEncoder .codecId), Argument.optional "notes" filledInOptionals.notes Encode.string ]
                 |> List.filterMap identity
     in
-    Object.selectionForCompositeField "createBook" (optionalArgs ++ [ Argument.required "author" requiredArgs.author Encode.string, Argument.required "language" requiredArgs.language Encode.string, Argument.required "originalId" requiredArgs.originalId (GraphQLBook.ScalarCodecs.codecs |> GraphQLBook.Scalar.unwrapEncoder .codecId), Argument.required "title" requiredArgs.title Encode.string, Argument.required "translator" requiredArgs.translator Encode.string ]) object_ identity
+    Object.selectionForCompositeField "createBook" (optionalArgs ++ [ Argument.required "author" requiredArgs.author Encode.string, Argument.required "languageId" requiredArgs.languageId Encode.string, Argument.required "originalId" requiredArgs.originalId (GraphQLBook.ScalarCodecs.codecs |> GraphQLBook.Scalar.unwrapEncoder .codecId), Argument.required "title" requiredArgs.title Encode.string, Argument.required "translator" requiredArgs.translator Encode.string ]) object_ identity
 
 
 type alias CreateTranslationRequiredArguments =

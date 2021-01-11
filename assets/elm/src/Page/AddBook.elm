@@ -441,7 +441,7 @@ encodeLanguage : Language -> Value
 encodeLanguage language =
     case language of
         English ->
-            Encode.string "en_US"
+            Encode.string "en"
 
         Japanese ->
             Encode.string "ja"
@@ -455,7 +455,7 @@ encodeBook { title, author, language } category_id =
     Encode.object
         [ ( "title", Encode.string title )
         , ( "author", Encode.string author )
-        , ( "language", encodeLanguage language )
+        , ( "language_id", encodeLanguage language )
         , ( "category_id", Encode.string category_id )
         ]
 

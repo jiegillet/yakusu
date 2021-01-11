@@ -49,3 +49,12 @@ categories :
     -> SelectionSet (List decodesTo) RootQuery
 categories object_ =
     Object.selectionForCompositeField "categories" [] object_ (identity >> Decode.list)
+
+
+{-| Get all languages
+-}
+languages :
+    SelectionSet decodesTo GraphQLBook.Object.Language
+    -> SelectionSet (List decodesTo) RootQuery
+languages object_ =
+    Object.selectionForCompositeField "languages" [] object_ (identity >> Decode.list)
