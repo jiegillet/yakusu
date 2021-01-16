@@ -260,6 +260,9 @@ subscriptions model =
                 Login subModel ->
                     [ Sub.map GotLoginMsg (Login.subscriptions subModel) ]
 
+                AddBook subModel ->
+                    [ Sub.map GotAddBookMsg (AddBook.subscriptions subModel) ]
+
                 _ ->
                     []
     in
