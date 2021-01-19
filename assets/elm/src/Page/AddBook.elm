@@ -3,6 +3,7 @@ module Page.AddBook exposing (Model, Msg, init, subscriptions, update, view)
 import Browser.Dom as Dom
 import Browser.Events
 import Common exposing (Context, height, width)
+import DnDList
 import Element as El exposing (Attribute, Element)
 import Element.Background as Background
 import Element.Border as Border
@@ -35,10 +36,11 @@ type alias Model =
     { context : Context
     , book : Form
     , hover : Bool
-    , previews : List String
+    , previews : List Preview
     , categories : RemoteData (Error (List Category)) (List Category)
     , languages : RemoteData (Error (List Language)) (List Language)
     , dropdown : Dropdown
+    , dnd : DnDList.Model
     }
 
 
@@ -51,6 +53,7 @@ init context =
       , categories = Loading
       , languages = Loading
       , dropdown = Closed
+      , dnd = system.model
       }
     , Cmd.batch [ getCategories, getlanguages ]
     )
@@ -99,6 +102,12 @@ type SelectLanguage
     | Other
 
 
+type alias Preview =
+    { file : File
+    , url : String
+    }
+
+
 
 -- UPDATE
 
@@ -113,7 +122,7 @@ type Msg
     | DragEnter
     | DragLeave
     | GotFiles File (List File)
-    | GotPreviews (List ( String, String ))
+    | GotPreviews (List Preview)
     | GotImages (Result Http.Error ()) --(List String))
     | GotCategories (RemoteData (Error (List Category)) (List Category))
     | ClickedCategory Category Bool
@@ -122,6 +131,8 @@ type Msg
     | EnteredSearchText String
     | ClickedwhileOpenDropDown
     | DropdownInfoChanged DropDownInfo
+      -- Drag and Drop
+    | DnDMsg DnDList.Msg
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -186,12 +197,12 @@ update msg model =
             , sortedFiles
                 |> List.map File.toUrl
                 |> Task.sequence
-                |> Task.map (List.map2 Tuple.pair (List.map File.name sortedFiles))
+                |> Task.map (List.map2 Preview sortedFiles)
                 |> Task.perform GotPreviews
             )
 
-        GotPreviews urls ->
-            ( { model | previews = List.map Tuple.second (List.sort urls) }
+        GotPreviews previews ->
+            ( { model | previews = previews }
             , Cmd.none
             )
 
@@ -244,7 +255,7 @@ update msg model =
                             ( { model | dropdown = Set lan }, Cmd.none )
 
                 other ->
-                    ( { model | dropdown = Closed }, Cmd.none )
+                    ( { model | dropdown = other }, Cmd.none )
 
         DropdownInfoChanged dropdownInfo ->
             case model.dropdown of
@@ -254,6 +265,15 @@ update msg model =
                 other ->
                     ( { model | dropdown = other }, Cmd.none )
 
+        DnDMsg dndMsg ->
+            let
+                ( dnd, previews ) =
+                    system.update dndMsg model.dnd model.previews
+            in
+            ( { model | dnd = dnd, previews = previews }
+            , system.commands dnd
+            )
+
 
 
 -- SUBSCRIPTIONS
@@ -261,15 +281,16 @@ update msg model =
 
 subscriptions : Model -> Sub Msg
 subscriptions model =
-    case model.dropdown of
-        Closed ->
-            Sub.none
+    let
+        dropdown =
+            case model.dropdown of
+                Open _ ->
+                    [ Browser.Events.onClick (Decode.succeed ClickedwhileOpenDropDown) ]
 
-        Set _ ->
-            Sub.none
-
-        _ ->
-            Browser.Events.onClick (Decode.succeed ClickedwhileOpenDropDown)
+                _ ->
+                    []
+    in
+    Sub.batch (system.subscriptions model.dnd :: dropdown)
 
 
 
@@ -304,7 +325,7 @@ view model =
                             , El.text "Back to Mainpage"
                             ]
                         )
-                    , viewForm model.book model.dropdown model.previews categories languages
+                    , viewForm model.book model.dropdown model.dnd model.previews categories languages
                     ]
 
             _ ->
@@ -312,8 +333,8 @@ view model =
     }
 
 
-viewForm : Form -> Dropdown -> List String -> List Category -> List Language -> Element Msg
-viewForm ({ title, author, language, category } as book) dropdown previews categories languages =
+viewForm : Form -> Dropdown -> DnDList.Model -> List Preview -> List Category -> List Language -> Element Msg
+viewForm ({ title, author, language, category } as book) dropdown dnd previews categories languages =
     El.column [ El.spacing 10, El.width El.fill ]
         [ El.text "To add a new book, please fill the following information and upload photos of the pages"
             |> El.el [ Background.color Style.grey, El.width El.fill, El.padding 10 ]
@@ -322,7 +343,7 @@ viewForm ({ title, author, language, category } as book) dropdown previews categ
         , viewTextInput author "Author(s)" InputAuthor
         , viewCategories category categories
         , El.row [ El.width El.fill, El.spaceEvenly ]
-            [ viewPageDownload previews
+            [ viewPageDownload dnd previews
             , Input.button
                 [ Font.color Style.nightBlue
                 , Border.color Style.nightBlue
@@ -505,8 +526,8 @@ viewCategories category categories =
         ]
 
 
-viewPageDownload : List String -> Element Msg
-viewPageDownload previews =
+viewPageDownload : DnDList.Model -> List Preview -> Element Msg
+viewPageDownload dnd previews =
     El.column [ El.spacing 20 ]
         [ El.row [ Background.color Style.grey, width 250, height 45, Font.size 20 ]
             [ iconPlaceholder
@@ -528,21 +549,68 @@ viewPageDownload previews =
                     El.text "Upload or Drag Images..."
                         |> El.el [ Background.color Style.grey, El.padding 5 ]
                 }
-            , List.map viewPreview previews
+            , List.indexedMap (viewPreview dnd) previews
                 |> El.wrappedRow [ El.spacingXY 10 30, El.centerX, El.paddingXY 38 10 ]
             ]
             |> El.el [ El.paddingEach { left = 60, right = 0, top = 0, bottom = 0 } ]
         ]
 
 
-viewPreview : String -> Element msg
-viewPreview url =
-    El.el
-        [ width 80
-        , height 80
-        , Background.image url
-        ]
-        El.none
+viewPreview : DnDList.Model -> Int -> Preview -> Element Msg
+viewPreview dnd index { url, file } =
+    let
+        itemId : String
+        itemId =
+            "id-" ++ File.name file
+    in
+    case system.info dnd of
+        Just { dragIndex } ->
+            if dragIndex /= index then
+                El.el
+                    (width 80
+                        :: height 80
+                        :: Background.image url
+                        :: El.htmlAttribute (Attributes.id itemId)
+                        :: List.map El.htmlAttribute (system.dropEvents index itemId)
+                    )
+                    El.none
+
+            else
+                El.el
+                    [ width 80
+                    , height 80
+                    , Background.color Style.grey
+                    , El.htmlAttribute (Attributes.id itemId)
+                    ]
+                    El.none
+
+        Nothing ->
+            El.el
+                (width 80
+                    :: height 80
+                    :: Background.image url
+                    :: El.htmlAttribute (Attributes.id itemId)
+                    :: List.map El.htmlAttribute (system.dragEvents index itemId)
+                )
+                El.none
+
+
+
+-- Drag and Drop
+
+
+config : DnDList.Config Preview
+config =
+    { beforeUpdate = \_ _ list -> list
+    , movement = DnDList.Free
+    , listen = DnDList.OnDrag
+    , operation = DnDList.Rotate
+    }
+
+
+system : DnDList.System Preview Msg
+system =
+    DnDList.create config DnDMsg
 
 
 
