@@ -281,11 +281,7 @@ view model =
             , body =
                 El.column
                     [ El.width (El.px (getContext model).windowWidth)
-                    , Font.family
-                        [ Font.typeface "Clear Sans"
-                        , Font.sansSerif
-                        ]
-                    , Font.light
+                    , Font.family [ Font.typeface "clear_sans_lightregular" ]
                     ]
                     [ Common.viewHeader (getContext model) ClickedLogOut
                     , El.map toMsg body
