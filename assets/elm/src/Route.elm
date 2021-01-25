@@ -13,6 +13,7 @@ type Route
     | Translation String
     | Books
     | AddBook
+    | BookAdded String
     | AddTranslation String
 
 
@@ -23,6 +24,7 @@ parser =
         , Parser.map Login (s "login")
         , Parser.map Translation (s "translation" </> string)
         , Parser.map AddBook (s "add")
+        , Parser.map BookAdded (s "add" </> string)
         , Parser.map AddTranslation (s "translate" </> string)
         ]
 
@@ -41,6 +43,9 @@ routeToPieces route =
 
         AddBook ->
             ( [ "add" ], [] )
+
+        BookAdded id ->
+            ( [ "add", id ], [] )
 
         AddTranslation id ->
             ( [ "translate", id ], [] )

@@ -167,7 +167,7 @@ type Msg
     | GotCompressedImage (WebData ( Int, Image ))
     | DeleteImage Int
     | ClickedSave
-    | BookSaved (WebData ())
+    | BookSaved (WebData String)
       -- Drag and Drop
     | DnDMsg DnDList.Msg
 
@@ -268,8 +268,8 @@ update msg model =
 
         BookSaved result ->
             case result of
-                Success () ->
-                    ( model, Cmd.none )
+                Success id ->
+                    ( model, Route.replaceUrl model.context.key (Route.BookAdded id) )
 
                 _ ->
                     ( model, Cmd.none )
@@ -721,6 +721,11 @@ encodeBook title author language category =
         ]
 
 
+decodeBookId : Decoder String
+decodeBookId =
+    Decode.at [ "data", "id" ] Decode.string
+
+
 postBook : String -> String -> Language -> Category -> List Image -> Cmd Msg
 postBook title author language category previews =
     Http.post
@@ -729,7 +734,7 @@ postBook title author language category previews =
             Http.stringPart "book" (Encode.encode 0 (encodeBook title author language category))
                 :: List.map (.file >> Http.bytesPart "pages[]" "image/jpeg") previews
                 |> Http.multipartBody
-        , expect = Http.expectWhatever (RemoteData.fromResult >> BookSaved) -- Http.expectJson GotImages (Decode.list Decode.string)
+        , expect = Http.expectJson (RemoteData.fromResult >> BookSaved) decodeBookId
         }
 
 
