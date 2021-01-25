@@ -3,6 +3,7 @@ defmodule CdcBooksWeb.Books.BookView do
   alias CdcBooksWeb.Books.BookView
   alias CdcBooks.Books
   alias CdcBooks.Books.{Book, Page}
+  alias CdcBooksWeb.LanguageView
 
   def render("index.json", %{books: books}) do
     %{data: render_many(books, BookView, "book.json")}
@@ -17,7 +18,7 @@ defmodule CdcBooksWeb.Books.BookView do
       id: book.id,
       title: book.title,
       author: book.author,
-      language: book.language,
+      language: LanguageView.render("show.json", %{language: book.language}),
       notes: book.notes,
       translator: book.translator
     }

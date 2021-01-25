@@ -30,6 +30,7 @@ defmodule CdcBooksWeb.Router do
 
     post "/books", Books.BookController, :new_book
     get "/book/:id/:max", Books.BookController, :export
+    post "/pages/", Books.PageController, :compress_image
     get "/pages/:id", Books.PageController, :image
     # post "/pages", Books.PageController, :create
     # resources "/translations", Books.TranslationController

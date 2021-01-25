@@ -1,7 +1,11 @@
 module Page.AddBook exposing (Model, Msg, init, subscriptions, update, view)
 
+import Base64
 import Browser.Dom as Dom
 import Browser.Events
+import Bytes exposing (Bytes, Endianness(..))
+import Bytes.Decode
+import Bytes.Encode
 import Common exposing (Context, height, width)
 import DnDList
 import Element as El exposing (Attribute, Element)
@@ -9,7 +13,7 @@ import Element.Background as Background
 import Element.Border as Border
 import Element.Events as Events
 import Element.Font as Font
-import Element.Input as Input exposing (OptionState(..), search)
+import Element.Input as Input exposing (OptionState(..))
 import File exposing (File)
 import File.Select as Select
 import GraphQLBook.Query as Query
@@ -18,12 +22,14 @@ import Graphql.Operation exposing (RootQuery)
 import Graphql.SelectionSet exposing (SelectionSet)
 import Html.Attributes as Attributes
 import Html.Events
-import Http
+import Http exposing (Response(..))
 import Json.Decode as Decode exposing (Decoder)
 import Json.Encode as Encode exposing (Value)
-import RemoteData exposing (RemoteData(..))
+import RemoteData exposing (RemoteData(..), WebData)
 import Route
 import Style
+import Svg
+import Svg.Attributes as S
 import Task
 import Types exposing (Category, Language)
 
@@ -34,12 +40,15 @@ import Types exposing (Category, Language)
 
 type alias Model =
     { context : Context
-    , book : Form
-    , hover : Bool
-    , previews : List Preview
     , categories : RemoteData (Error (List Category)) (List Category)
     , languages : RemoteData (Error (List Language)) (List Language)
-    , dropdown : Dropdown
+    , title : String
+    , author : String
+    , category : Maybe Category
+    , language : SelectLanguage
+    , languageDropdown : LanguageDropdown
+    , hoverUploadBox : Bool
+    , previews : List Image
     , dnd : DnDList.Model
     }
 
@@ -47,38 +56,22 @@ type alias Model =
 init : Context -> ( Model, Cmd Msg )
 init context =
     ( { context = context
-      , book = emptyBook
-      , hover = False
+      , hoverUploadBox = False
       , previews = []
       , categories = Loading
       , languages = Loading
-      , dropdown = Closed
+      , languageDropdown = Closed
       , dnd = system.model
+      , title = ""
+      , author = ""
+      , language = Japanese
+      , category = Nothing
       }
     , Cmd.batch [ getCategories, getlanguages ]
     )
 
 
-type alias Form =
-    { title : String
-    , author : String
-    , language : SelectLanguage
-    , category : Maybe Category
-    , images : List File
-    }
-
-
-emptyBook : Form
-emptyBook =
-    { title = ""
-    , author = ""
-    , language = Japanese
-    , images = []
-    , category = Nothing
-    }
-
-
-type Dropdown
+type LanguageDropdown
     = Closed
     | Set Language
     | Open DropDownInfo
@@ -102,10 +95,52 @@ type SelectLanguage
     | Other
 
 
-type alias Preview =
-    { file : File
-    , url : String
+type alias Image =
+    { file : Bytes
+    , preview : String
     }
+
+
+emptyImage : Image
+emptyImage =
+    Image (Bytes.Encode.sequence [] |> Bytes.Encode.encode) ""
+
+
+config : DnDList.Config Image
+config =
+    { beforeUpdate = \_ _ list -> list
+    , movement = DnDList.Free
+    , listen = DnDList.OnDrag
+    , operation = DnDList.Rotate
+    }
+
+
+system : DnDList.System Image Msg
+system =
+    DnDList.create config DnDMsg
+
+
+
+-- HELPER
+
+
+maybeToList : Maybe a -> List a
+maybeToList maybe =
+    case maybe of
+        Nothing ->
+            []
+
+        Just a ->
+            [ a ]
+
+
+setAt : Int -> a -> List a -> List a
+setAt index a list =
+    if index >= 0 && index < List.length list then
+        List.take index list ++ a :: List.drop (index + 1) list
+
+    else
+        list
 
 
 
@@ -113,40 +148,38 @@ type alias Preview =
 
 
 type Msg
-    = InputTitle String
+    = GotLanguages (RemoteData (Error (List Language)) (List Language))
+    | GotCategories (RemoteData (Error (List Category)) (List Category))
+    | InputTitle String
     | InputAuthor String
+    | ClickedCategory Category Bool
+      -- Language and Dropdown
     | InputLanguage SelectLanguage
     | SelectLanguage SelectLanguage
-    | ClickedSave Form
-    | Pick
-    | DragEnter
-    | DragLeave
-    | GotFiles File (List File)
-    | GotPreviews (List Preview)
-    | GotImages (Result Http.Error ()) --(List String))
-    | GotCategories (RemoteData (Error (List Category)) (List Category))
-    | ClickedCategory Category Bool
-    | GotLanguages (RemoteData (Error (List Language)) (List Language))
-      -- Dropdown
     | EnteredSearchText String
     | ClickedwhileOpenDropDown
     | DropdownInfoChanged DropDownInfo
+      -- File Upload
+    | ClickedUploadFiles
+    | DragEnterUploadBox
+    | DragLeaveUploadBox
+    | GotUploadedFiles File (List File)
+    | GotCompressedImage (WebData ( Int, Image ))
+    | DeleteImage Int
+    | ClickedSave
+    | BookSaved (WebData ())
       -- Drag and Drop
     | DnDMsg DnDList.Msg
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
-    let
-        modelBook =
-            model.book
-    in
     case msg of
         InputTitle title ->
-            ( { model | book = { modelBook | title = title } }, Cmd.none )
+            ( { model | title = title }, Cmd.none )
 
         InputAuthor author ->
-            ( { model | book = { modelBook | author = author } }, Cmd.none )
+            ( { model | author = author }, Cmd.none )
 
         InputLanguage language ->
             case language of
@@ -162,76 +195,103 @@ update msg model =
                     )
 
         SelectLanguage language ->
-            ( { model | book = { modelBook | language = language } }, Cmd.none )
+            ( { model | language = language }, Cmd.none )
 
-        ClickedSave book ->
-            -- TODO Full check
-            case book.category of
-                Just { id } ->
-                    ( model, postBook book id )
-
-                Nothing ->
-                    ( model, Cmd.none )
-
-        Pick ->
-            ( model
-            , Select.files [ "image/*" ] GotFiles
-            )
-
-        DragEnter ->
-            ( { model | hover = True }
-            , Cmd.none
-            )
-
-        DragLeave ->
-            ( { model | hover = False }
-            , Cmd.none
-            )
-
-        GotFiles file files ->
+        ClickedSave ->
             let
-                sortedFiles =
-                    List.sortBy File.name (file :: files)
+                maybeLanguage =
+                    case ( model.language, model.languageDropdown ) of
+                        ( Other, Set lan ) ->
+                            Just lan
+
+                        ( English, _ ) ->
+                            Just (Language "en" "English")
+
+                        ( Japanese, _ ) ->
+                            Just (Language "jp" "Japanese")
+
+                        _ ->
+                            Nothing
             in
-            ( { model | hover = False, book = { modelBook | images = sortedFiles } }
-            , sortedFiles
-                |> List.map File.toUrl
-                |> Task.sequence
-                |> Task.map (List.map2 Preview sortedFiles)
-                |> Task.perform GotPreviews
-            )
+            -- TODO Full check: non-empty title author pages
+            case ( model.category, maybeLanguage ) of
+                ( Just category, Just language ) ->
+                    ( model
+                    , postBook model.title model.author language category model.previews
+                    )
 
-        GotPreviews previews ->
-            ( { model | previews = previews }
-            , Cmd.none
-            )
-
-        GotImages result ->
-            case result of
-                Ok _ ->
+                _ ->
                     ( model, Cmd.none )
 
-                Err _ ->
+        ClickedUploadFiles ->
+            ( model, Select.files [ "image/*" ] GotUploadedFiles )
+
+        DragEnterUploadBox ->
+            ( { model | hoverUploadBox = True }, Cmd.none )
+
+        DragLeaveUploadBox ->
+            ( { model | hoverUploadBox = False }, Cmd.none )
+
+        GotUploadedFiles file files ->
+            let
+                filteredFiles =
+                    List.filter (File.mime >> String.startsWith "image/") (file :: files)
+
+                offset =
+                    List.length model.previews
+            in
+            ( { model
+                | hoverUploadBox = False
+                , previews =
+                    model.previews
+                        ++ List.map (always emptyImage) filteredFiles
+              }
+            , filteredFiles
+                |> List.indexedMap (\index -> uploadImage (index + offset))
+                |> Cmd.batch
+            )
+
+        GotCompressedImage result ->
+            case result of
+                Success ( index, preview ) ->
+                    ( { model | previews = setAt index preview model.previews }, Cmd.none )
+
+                _ ->
+                    ( model, Cmd.none )
+
+        DeleteImage index ->
+            let
+                previews =
+                    List.take index model.previews ++ List.drop (index + 1) model.previews
+            in
+            ( { model | previews = previews }, Cmd.none )
+
+        BookSaved result ->
+            case result of
+                Success () ->
+                    ( model, Cmd.none )
+
+                _ ->
                     ( model, Cmd.none )
 
         GotCategories result ->
             ( { model | categories = result }, Cmd.none )
 
         ClickedCategory category _ ->
-            ( { model | book = { modelBook | category = Just category } }, Cmd.none )
+            ( { model | category = Just category }, Cmd.none )
 
         GotLanguages result ->
             ( { model | languages = result }, Cmd.none )
 
         -- DropDown
         EnteredSearchText search ->
-            case model.dropdown of
+            case model.languageDropdown of
                 Closed ->
-                    ( { model | dropdown = Open { emptyDropdownInfo | text = search } }, Cmd.none )
+                    ( { model | languageDropdown = Open { emptyDropdownInfo | text = search } }, Cmd.none )
 
                 Set lan ->
                     ( { model
-                        | dropdown =
+                        | languageDropdown =
                             Open
                                 { emptyDropdownInfo
                                     | text = String.right 1 search
@@ -242,37 +302,35 @@ update msg model =
                     )
 
                 Open info ->
-                    ( { model | dropdown = Open { info | text = search } }, Cmd.none )
+                    ( { model | languageDropdown = Open { info | text = search } }, Cmd.none )
 
         ClickedwhileOpenDropDown ->
-            case model.dropdown of
+            case model.languageDropdown of
                 Open { selectedLanguage } ->
                     case selectedLanguage of
                         Nothing ->
-                            ( { model | dropdown = Closed }, Cmd.none )
+                            ( { model | languageDropdown = Closed }, Cmd.none )
 
                         Just lan ->
-                            ( { model | dropdown = Set lan }, Cmd.none )
+                            ( { model | languageDropdown = Set lan }, Cmd.none )
 
                 other ->
-                    ( { model | dropdown = other }, Cmd.none )
+                    ( { model | languageDropdown = other }, Cmd.none )
 
         DropdownInfoChanged dropdownInfo ->
-            case model.dropdown of
+            case model.languageDropdown of
                 Open _ ->
-                    ( { model | dropdown = Open dropdownInfo }, Cmd.none )
+                    ( { model | languageDropdown = Open dropdownInfo }, Cmd.none )
 
                 other ->
-                    ( { model | dropdown = other }, Cmd.none )
+                    ( { model | languageDropdown = other }, Cmd.none )
 
         DnDMsg dndMsg ->
             let
                 ( dnd, previews ) =
                     system.update dndMsg model.dnd model.previews
             in
-            ( { model | dnd = dnd, previews = previews }
-            , system.commands dnd
-            )
+            ( { model | dnd = dnd, previews = previews }, system.commands dnd )
 
 
 
@@ -283,7 +341,7 @@ subscriptions : Model -> Sub Msg
 subscriptions model =
     let
         dropdown =
-            case model.dropdown of
+            case model.languageDropdown of
                 Open _ ->
                     [ Browser.Events.onClick (Decode.succeed ClickedwhileOpenDropDown) ]
 
@@ -305,93 +363,65 @@ iconPlaceholder =
 
 view : Model -> { title : String, body : Element Msg }
 view model =
+    let
+        back =
+            Route.link Route.Books
+                [ Font.color Style.grey
+                , Border.color Style.grey
+                , Border.width 2
+                ]
+                (El.row [ El.paddingXY 10 5, height 40 ] [ iconPlaceholder, El.text "Back to Mainpage" ])
+                |> El.el [ El.paddingEach { left = 40, right = 0, top = 0, bottom = 0 }, Font.size 20 ]
+
+        explanation =
+            El.row [ Background.color Style.grey, El.width El.fill, height 45, El.spacing 5, Font.size 20 ]
+                [ iconPlaceholder
+                , El.text "To add a new book, please fill the following information and upload photos of the pages"
+                ]
+    in
     { title = "Add an Original Book"
     , body =
         case ( model.categories, model.languages ) of
             ( Success categories, Success languages ) ->
                 El.column
-                    [ El.spacing 25
-                    , El.paddingXY 20 50
-                    , width 1000
+                    [ width 1000
+                    , El.spacing 30
                     , El.centerX
                     ]
-                    [ Route.link Route.Books
-                        [ Font.color Style.grey
-                        , Border.color Style.grey
-                        , Border.width 2
-                        ]
-                        (El.row [ El.paddingXY 10 5 ]
-                            [ iconPlaceholder
-                            , El.text "Back to Mainpage"
-                            ]
-                        )
-                    , viewForm model.book model.dropdown model.dnd model.previews categories languages
+                    [ back
+                    , explanation
+                    , viewForm model categories languages
                     ]
+                    |> El.el [ El.paddingXY 100 30 ]
 
             _ ->
                 El.text "There was a problem retrieving data."
     }
 
 
-viewForm : Form -> Dropdown -> DnDList.Model -> List Preview -> List Category -> List Language -> Element Msg
-viewForm ({ title, author, language, category } as book) dropdown dnd previews categories languages =
-    El.column [ El.spacing 10, El.width El.fill ]
-        [ El.text "To add a new book, please fill the following information and upload photos of the pages"
-            |> El.el [ Background.color Style.grey, El.width El.fill, El.padding 10 ]
-        , viewLanguageChoice dropdown language languages
+viewForm : Model -> List Category -> List Language -> Element Msg
+viewForm { title, author, language, category, languageDropdown, dnd, previews } categories languages =
+    El.column [ El.spacing 20, El.width El.fill, Font.size 18 ]
+        [ viewLanguageChoice languageDropdown language languages
+            |> El.el [ El.paddingEach { left = 40, right = 0, top = 0, bottom = 0 } ]
         , viewTextInput title "Title" InputTitle
         , viewTextInput author "Author(s)" InputAuthor
         , viewCategories category categories
-        , El.row [ El.width El.fill, El.spaceEvenly ]
-            [ viewPageDownload dnd previews
-            , Input.button
-                [ Font.color Style.nightBlue
-                , Border.color Style.nightBlue
-                , Border.width 2
-                , El.alignBottom
-                ]
-                { onPress =
-                    ClickedSave book
-                        |> Just
-                , label =
-                    El.row
-                        [ El.paddingXY 10 5 ]
-                        [ El.text "Add Book"
-                        , iconPlaceholder
-                        ]
-                }
+        , viewPageDownload dnd previews
+        , Input.button
+            [ Font.color Style.nightBlue
+            , Border.color Style.nightBlue
+            , Border.width 2
+            , El.alignRight
             ]
+            { onPress = Just ClickedSave
+            , label =
+                El.row [ El.paddingXY 10 5, height 40, width 140 ] [ El.text "Add Book", iconPlaceholder ]
+            }
         ]
 
 
-viewTextInput : String -> String -> (String -> Msg) -> Element Msg
-viewTextInput text label message =
-    Input.text
-        [ Border.color Style.nightBlue
-        , Border.rounded 0
-        , Border.width 2
-        , El.spacing 0
-        , width 400
-
-        -- This is for the input-in-radio bug workaround
-        , El.htmlAttribute (Attributes.id ("attr-" ++ label))
-        ]
-        { onChange = message
-        , text = text
-        , placeholder = Nothing
-        , label =
-            Input.labelLeft [ El.height El.fill, Background.color Style.nightBlue ]
-                (El.text label
-                    |> El.el
-                        [ El.centerY
-                        , width 100
-                        , El.padding 10
-                        ]
-                )
-        }
-
-
-viewLanguageChoice : Dropdown -> SelectLanguage -> List Language -> Element Msg
+viewLanguageChoice : LanguageDropdown -> SelectLanguage -> List Language -> Element Msg
 viewLanguageChoice dropdown language languages =
     Input.radioRow [ El.spacing 30 ]
         { onChange = InputLanguage
@@ -413,17 +443,31 @@ viewLanguageChoice dropdown language languages =
         }
 
 
-maybeToList : Maybe a -> List a
-maybeToList maybe =
-    case maybe of
-        Nothing ->
-            []
+viewTextInput : String -> String -> (String -> Msg) -> Element Msg
+viewTextInput text label message =
+    Input.text
+        [ Border.color Style.nightBlue
+        , Border.rounded 0
+        , Border.width 2
+        , El.spacing 10
+        , width 340
+        , height 42
+        , El.padding 10
 
-        Just a ->
-            [ a ]
+        -- This is for the input-in-radio bug workaround
+        , El.htmlAttribute (Attributes.id ("attr-" ++ label))
+        ]
+        { onChange = message
+        , text = text
+        , placeholder = Nothing
+        , label =
+            Input.labelLeft [ El.height El.fill, Background.color Style.nightBlue ]
+                (El.el [ width 100, El.padding 10, El.centerY ] (El.text label))
+        }
+        |> El.el [ El.paddingEach { left = 40, right = 0, top = 0, bottom = 0 } ]
 
 
-viewLanguageDropdown : Dropdown -> List Language -> Element Msg
+viewLanguageDropdown : LanguageDropdown -> List Language -> Element Msg
 viewLanguageDropdown dropdown languages =
     let
         languageList text selectedLanguage =
@@ -451,7 +495,7 @@ viewLanguageDropdown dropdown languages =
                     )
     in
     Input.search
-        ([ width 230
+        ([ width 280
          , Border.width 2
          , Border.color Style.nightBlue
          ]
@@ -465,7 +509,7 @@ viewLanguageDropdown dropdown languages =
                                 [ list
                                     |> List.map (viewDropdownLanguage info)
                                     |> El.column
-                                        [ width 230
+                                        [ El.width El.fill
                                         , Border.width 2
                                         , Border.color Style.nightBlue
                                         ]
@@ -502,7 +546,7 @@ viewCategories category categories =
                 , icon =
                     \checked ->
                         El.text name
-                            |> El.el [ El.centerX, El.centerY, Font.size 18 ]
+                            |> El.el [ El.centerX, El.centerY, Font.size 16 ]
                             |> El.el
                                 [ width 150
                                 , height 25
@@ -517,109 +561,55 @@ viewCategories category categories =
     in
     El.column [ El.spacing 20 ]
         [ El.row [ Background.color Style.grey, width 250, height 45, Font.size 20 ]
-            [ iconPlaceholder
-            , El.text "Select Topic"
-            ]
+            [ iconPlaceholder, El.text "Select Topic" ]
         , categories
             |> List.map viewCategory
             |> El.wrappedRow [ El.paddingXY 40 0, El.spacing 10 ]
         ]
+        |> El.el [ El.paddingEach { top = 5, bottom = 0, left = 0, right = 0 } ]
 
 
-viewPageDownload : DnDList.Model -> List Preview -> Element Msg
-viewPageDownload dnd previews =
-    El.column [ El.spacing 20 ]
-        [ El.row [ Background.color Style.grey, width 250, height 45, Font.size 20 ]
-            [ iconPlaceholder
-            , El.text "Add Pages"
+viewPageDownload : DnDList.Model -> List Image -> Element Msg
+viewPageDownload dnd images =
+    El.column [ El.spacing 20, El.inFront (ghostView dnd images) ]
+        [ El.row
+            [ Background.color Style.grey
+            , width 250
+            , height 45
+            , Font.size 20
+            , Events.onClick ClickedUploadFiles
             ]
-        , El.column
-            [ width 700
-            , El.height (El.minimum 200 El.shrink)
-            , Border.color Style.nightBlue
-            , Border.width 2
-            , hijackOn "dragenter" (Decode.succeed DragEnter)
-            , hijackOn "dragover" (Decode.succeed DragEnter)
-            , hijackOn "dragleave" (Decode.succeed DragLeave)
-            , hijackOn "drop" dropDecoder
-            ]
-            [ Input.button [ El.centerX, El.centerY, El.padding 15 ]
-                { onPress = Just Pick
-                , label =
-                    El.text "Upload or Drag Images..."
-                        |> El.el [ Background.color Style.grey, El.padding 5 ]
-                }
-            , List.indexedMap (viewPreview dnd) previews
-                |> El.wrappedRow [ El.spacingXY 10 30, El.centerX, El.paddingXY 38 10 ]
-            ]
-            |> El.el [ El.paddingEach { left = 60, right = 0, top = 0, bottom = 0 } ]
-        ]
-
-
-viewPreview : DnDList.Model -> Int -> Preview -> Element Msg
-viewPreview dnd index { url, file } =
-    let
-        itemId : String
-        itemId =
-            "id-" ++ File.name file
-    in
-    case system.info dnd of
-        Just { dragIndex } ->
-            if dragIndex /= index then
-                El.el
-                    (width 80
-                        :: height 80
-                        :: Background.image url
-                        :: El.htmlAttribute (Attributes.id itemId)
-                        :: List.map El.htmlAttribute (system.dropEvents index itemId)
-                    )
-                    El.none
-
-            else
-                El.el
-                    [ width 80
-                    , height 80
-                    , Background.color Style.grey
-                    , El.htmlAttribute (Attributes.id itemId)
+            [ iconPlaceholder, El.text "Add Pages" ]
+            |> El.el [ El.paddingEach { top = 5, bottom = 0, left = 0, right = 0 } ]
+        , El.row [ El.spacing 10 ]
+            [ List.indexedMap (viewPreview dnd) images
+                ++ [ viewAddOrDelete dnd ]
+                |> El.wrappedRow
+                    [ width 620
+                    , El.spacingXY 10 30
+                    , El.height (El.minimum 200 El.shrink)
                     ]
-                    El.none
-
-        Nothing ->
-            El.el
-                (width 80
-                    :: height 80
-                    :: Background.image url
-                    :: El.htmlAttribute (Attributes.id itemId)
-                    :: List.map El.htmlAttribute (system.dragEvents index itemId)
-                )
-                El.none
-
-
-
--- Drag and Drop
-
-
-config : DnDList.Config Preview
-config =
-    { beforeUpdate = \_ _ list -> list
-    , movement = DnDList.Free
-    , listen = DnDList.OnDrag
-    , operation = DnDList.Rotate
-    }
-
-
-system : DnDList.System Preview Msg
-system =
-    DnDList.create config DnDMsg
-
-
-
--- REST API
+                |> El.el
+                    [ Border.color Style.nightBlue
+                    , El.padding 10
+                    , Border.width 2
+                    , hijackOn "dragenter" (Decode.succeed DragEnterUploadBox)
+                    , hijackOn "dragover" (Decode.succeed DragEnterUploadBox)
+                    , hijackOn "dragleave" (Decode.succeed DragLeaveUploadBox)
+                    , hijackOn "drop" dropDecoder
+                    ]
+            , El.textColumn [ El.alignTop, Font.size 18, El.width El.fill, Font.color Style.nightBlue, El.spacing 10 ]
+                [ El.paragraph [] [ El.text "Click on the + or drag images into the field to upload." ]
+                , El.paragraph [] [ El.text "Drag the images to reorder. Drop on the x to remove." ]
+                ]
+            ]
+            |> El.el [ El.paddingEach { top = 0, bottom = 5, left = 40, right = 0 } ]
+        ]
 
 
 dropDecoder : Decoder Msg
 dropDecoder =
-    Decode.at [ "dataTransfer", "files" ] (Decode.oneOrMore GotFiles File.decoder)
+    Decode.at [ "dataTransfer", "files" ] (Decode.oneOrMore GotUploadedFiles File.decoder)
 
 
 hijackOn : String -> Decoder msg -> Attribute msg
@@ -633,40 +623,145 @@ hijack msg =
     ( msg, True )
 
 
-encodeLanguage : SelectLanguage -> Value
-encodeLanguage language =
-    case language of
-        English ->
-            Encode.string "en"
+viewPreview : DnDList.Model -> Int -> Image -> Element Msg
+viewPreview dnd index { preview } =
+    let
+        itemId : String
+        itemId =
+            "id-image-" ++ String.fromInt index
 
-        Japanese ->
-            Encode.string "ja"
+        baseAttributes =
+            [ width 80
+            , height 80
+            , Border.width 2
+            , Border.color Style.nightBlue
+            , El.htmlAttribute (Attributes.id itemId)
+            ]
+    in
+    case system.info dnd of
+        Just { dragIndex } ->
+            if dragIndex /= index then
+                El.el
+                    (Background.image preview
+                        :: List.map El.htmlAttribute (system.dropEvents index itemId)
+                        ++ baseAttributes
+                    )
+                    El.none
 
-        Other ->
-            Encode.string "TODO"
+            else
+                El.el
+                    (Background.color Style.nightBlue :: baseAttributes)
+                    El.none
+
+        Nothing ->
+            El.el
+                (Background.image preview
+                    :: baseAttributes
+                    ++ List.map El.htmlAttribute (system.dragEvents index itemId)
+                )
+                El.none
 
 
-encodeBook : Form -> String -> Value
-encodeBook { title, author, language } category_id =
+ghostView : DnDList.Model -> List Image -> Element Msg
+ghostView dnd previews =
+    let
+        maybeDragItem : Maybe Image
+        maybeDragItem =
+            system.info dnd
+                |> Maybe.andThen (\{ dragIndex } -> previews |> List.drop dragIndex |> List.head)
+    in
+    case maybeDragItem of
+        Just { preview } ->
+            El.el
+                (width 80
+                    :: height 80
+                    :: Background.image preview
+                    :: List.map El.htmlAttribute (system.ghostStyles dnd)
+                )
+                El.none
+
+        Nothing ->
+            El.none
+
+
+viewAddOrDelete : DnDList.Model -> Element Msg
+viewAddOrDelete dnd =
+    let
+        cross transformation =
+            Svg.svg
+                [ S.width "80", S.height "80", S.viewBox "0 0 80 80", S.fill "rgb(61, 152, 255)" ]
+                [ Svg.rect [ S.x "32.5", S.y "10", S.width "15", S.height "60", transformation ] []
+                , Svg.rect [ S.x "10", S.y "32.5", S.width "60", S.height "15", transformation ] []
+                ]
+                |> El.html
+    in
+    case system.info dnd of
+        Just { dragIndex } ->
+            El.el
+                [ Events.onMouseUp (DeleteImage dragIndex) ]
+                (cross (S.transform "rotate(45,40,40)"))
+
+        Nothing ->
+            El.el
+                [ Events.onClick ClickedUploadFiles ]
+                (cross (S.transform ""))
+
+
+
+-- REST API
+
+
+encodeBook : String -> String -> Language -> Category -> Value
+encodeBook title author language category =
     Encode.object
         [ ( "title", Encode.string title )
         , ( "author", Encode.string author )
-        , ( "language_id", encodeLanguage language )
-        , ( "category_id", Encode.string category_id )
+        , ( "language_id", Encode.string language.id )
+        , ( "category_id", Encode.string category.id )
         ]
 
 
-postBook : Form -> String -> Cmd Msg
-postBook ({ images } as book) category_id =
+postBook : String -> String -> Language -> Category -> List Image -> Cmd Msg
+postBook title author language category previews =
     Http.post
         { url = "api/rest/books"
         , body =
-            Http.stringPart "book" (Encode.encode 0 (encodeBook book category_id))
-                :: List.map (Http.filePart "pages[]") images
-                -- :: List.indexedMap (\i -> Http.filePart ("pages[" ++ String.fromInt i ++ "]")) images
+            Http.stringPart "book" (Encode.encode 0 (encodeBook title author language category))
+                :: List.map (.file >> Http.bytesPart "pages[]" "image/jpeg") previews
                 |> Http.multipartBody
-        , expect = Http.expectWhatever GotImages -- Http.expectJson GotImages (Decode.list Decode.string)
+        , expect = Http.expectWhatever (RemoteData.fromResult >> BookSaved) -- Http.expectJson GotImages (Decode.list Decode.string)
         }
+
+
+uploadImage : Int -> File -> Cmd Msg
+uploadImage page file =
+    Http.post
+        { url = "api/rest/pages"
+        , body =
+            Http.multipartBody
+                [ Http.stringPart "page" (String.fromInt page)
+                , Http.filePart "image" file
+                ]
+        , expect = Http.expectBytes (RemoteData.fromResult >> GotCompressedImage) fileImageDecoder
+        }
+
+
+fileImageDecoder : Bytes.Decode.Decoder ( Int, Image )
+fileImageDecoder =
+    let
+        toUrl =
+            Base64.fromBytes >> Maybe.withDefault "" >> (++) "data:image/jpeg;base64,"
+    in
+    Bytes.Decode.map2 Tuple.pair
+        (Bytes.Decode.unsignedInt16 BE)
+        (Bytes.Decode.unsignedInt32 BE
+            |> Bytes.Decode.andThen
+                (\length ->
+                    Bytes.Decode.bytes length
+                        |> Bytes.Decode.andThen
+                            (\file -> Bytes.Decode.succeed (Image file (toUrl file)))
+                )
+        )
 
 
 

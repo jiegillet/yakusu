@@ -48,4 +48,17 @@ defmodule CdcBooksWeb.Books.PageController do
     |> put_resp_content_type(page.image_type, "utf-8")
     |> send_resp(200, page.image)
   end
+
+  def compress_image(conn, %{"page" => page, "image" => %Plug.Upload{path: path}}) do
+    page = Jason.decode!(page)
+
+    {:ok, image} =
+      path
+      |> CdcBooks.Mogrify.blur_image()
+      |> File.read()
+
+    response = <<page::size(16)>> <> <<byte_size(image)::size(32)>> <> image
+
+    send_resp(conn, :ok, response)
+  end
 end

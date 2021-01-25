@@ -3,6 +3,7 @@ defmodule CdcBooksWeb.Books.BookController do
 
   alias CdcBooks.Books
   alias CdcBooks.Books.Book
+  alias CdcBooks.Repo
 
   action_fallback CdcBooksWeb.FallbackController
 
@@ -52,7 +53,7 @@ defmodule CdcBooksWeb.Books.BookController do
          {:ok, _pages} <- add_pages(pages, book_id) do
       conn
       |> put_status(:created)
-      |> render("show.json", book: book)
+      |> render("show.json", book: Repo.preload(book, :language))
     end
   end
 
