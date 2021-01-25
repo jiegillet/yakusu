@@ -25,6 +25,10 @@ defmodule CdcBooksWeb.Resolvers.Books do
     {:ok, Languages.get_language!(book.language_id)}
   end
 
+  def get_category(%Book{} = book, _args, _resolution) do
+    {:ok, Books.get_category!(book.category_id)}
+  end
+
   def list_book_translations(%Book{} = book, _args, _resolution) do
     {:ok, Books.list_book_translations(book)}
   end

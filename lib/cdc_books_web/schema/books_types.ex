@@ -12,7 +12,9 @@ defmodule CdcBooksWeb.Schema.BooksTypes do
     end
     field :translator, :string
     field :notes, :string
-    field :category, non_null(:category)
+    field :category, non_null(:category) do
+      resolve(&Resolvers.Books.get_category/3)
+    end
 
     field :pages, non_null(list_of(non_null(:page))) do
       resolve(&Resolvers.Books.list_pages/3)
