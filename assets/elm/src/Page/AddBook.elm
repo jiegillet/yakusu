@@ -1,5 +1,6 @@
 module Page.AddBook exposing (Model, Msg, init, subscriptions, update, view)
 
+import Animation
 import Base64
 import Browser.Dom as Dom
 import Browser.Events
@@ -50,6 +51,7 @@ type alias Model =
     , hoverUploadBox : Bool
     , previews : List Image
     , dnd : DnDList.Model
+    , crossAnimation : Animation.State
     }
 
 
@@ -66,6 +68,11 @@ init context =
       , author = ""
       , language = Japanese
       , category = Nothing
+      , crossAnimation =
+            Animation.style
+                [ Animation.rotate (Animation.deg 0)
+                , Animation.transformOrigin (Animation.percent 50) (Animation.percent 50) (Animation.percent 0)
+                ]
       }
     , Cmd.batch [ getCategories, getlanguages ]
     )
@@ -170,6 +177,7 @@ type Msg
     | BookSaved (WebData String)
       -- Drag and Drop
     | DnDMsg DnDList.Msg
+    | Animate Animation.Msg
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -329,8 +337,25 @@ update msg model =
             let
                 ( dnd, previews ) =
                     system.update dndMsg model.dnd model.previews
+
+                cross =
+                    case system.info dnd of
+                        Just _ ->
+                            Animation.interrupt
+                                [ Animation.to [ Animation.rotate (Animation.deg 45) ] ]
+                                model.crossAnimation
+
+                        Nothing ->
+                            Animation.interrupt
+                                [ Animation.to [ Animation.rotate (Animation.deg 0) ] ]
+                                model.crossAnimation
             in
-            ( { model | dnd = dnd, previews = previews }, system.commands dnd )
+            ( { model | dnd = dnd, previews = previews, crossAnimation = cross }
+            , system.commands dnd
+            )
+
+        Animate animMsg ->
+            ( { model | crossAnimation = Animation.update animMsg model.crossAnimation }, Cmd.none )
 
 
 
@@ -348,7 +373,11 @@ subscriptions model =
                 _ ->
                     []
     in
-    Sub.batch (system.subscriptions model.dnd :: dropdown)
+    Sub.batch
+        (system.subscriptions model.dnd
+            :: Animation.subscription Animate [ model.crossAnimation ]
+            :: dropdown
+        )
 
 
 
@@ -400,14 +429,14 @@ view model =
 
 
 viewForm : Model -> List Category -> List Language -> Element Msg
-viewForm { title, author, language, category, languageDropdown, dnd, previews } categories languages =
+viewForm { title, author, language, category, languageDropdown, dnd, previews, crossAnimation } categories languages =
     El.column [ El.spacing 20, El.width El.fill, Font.size 18 ]
         [ viewLanguageChoice languageDropdown language languages
             |> El.el [ El.paddingEach { left = 40, right = 0, top = 0, bottom = 0 } ]
         , viewTextInput title "Title" InputTitle
         , viewTextInput author "Author(s)" InputAuthor
         , viewCategories category categories
-        , viewPageDownload dnd previews
+        , viewPageDownload dnd crossAnimation previews
         , Input.button
             [ Font.color Style.nightBlue
             , Border.color Style.nightBlue
@@ -569,8 +598,8 @@ viewCategories category categories =
         |> El.el [ El.paddingEach { top = 5, bottom = 0, left = 0, right = 0 } ]
 
 
-viewPageDownload : DnDList.Model -> List Image -> Element Msg
-viewPageDownload dnd images =
+viewPageDownload : DnDList.Model -> Animation.State -> List Image -> Element Msg
+viewPageDownload dnd crossAnimation images =
     El.column [ El.spacing 20, El.inFront (ghostView dnd images) ]
         [ El.row
             [ Background.color Style.grey
@@ -583,7 +612,7 @@ viewPageDownload dnd images =
             |> El.el [ El.paddingEach { top = 5, bottom = 0, left = 0, right = 0 } ]
         , El.row [ El.spacing 10 ]
             [ List.indexedMap (viewPreview dnd) images
-                ++ [ viewAddOrDelete dnd ]
+                ++ [ viewAddOrDelete dnd crossAnimation ]
                 |> El.wrappedRow
                     [ width 620
                     , El.spacingXY 10 30
@@ -684,27 +713,29 @@ ghostView dnd previews =
             El.none
 
 
-viewAddOrDelete : DnDList.Model -> Element Msg
-viewAddOrDelete dnd =
-    let
-        cross transformation =
-            Svg.svg
-                [ S.width "80", S.height "80", S.viewBox "0 0 80 80", S.fill "rgb(61, 152, 255)" ]
-                [ Svg.rect [ S.x "32.5", S.y "10", S.width "15", S.height "60", transformation ] []
-                , Svg.rect [ S.x "10", S.y "32.5", S.width "60", S.height "15", transformation ] []
-                ]
-                |> El.html
-    in
-    case system.info dnd of
-        Just { dragIndex } ->
-            El.el
-                [ Events.onMouseUp (DeleteImage dragIndex) ]
-                (cross (S.transform "rotate(45,40,40)"))
+viewAddOrDelete : DnDList.Model -> Animation.State -> Element Msg
+viewAddOrDelete dnd crossAnimation =
+    Svg.svg
+        (S.width "80"
+            :: S.height "80"
+            :: S.viewBox "0 0 80 80"
+            :: S.fill "rgb(61, 152, 255)"
+            :: Animation.render crossAnimation
+        )
+        [ Svg.g []
+            [ Svg.rect [ S.x "32.5", S.y "10", S.width "15", S.height "60" ] []
+            , Svg.rect [ S.x "10", S.y "32.5", S.width "60", S.height "15" ] []
+            ]
+        ]
+        |> El.html
+        |> El.el
+            [ case system.info dnd of
+                Nothing ->
+                    Events.onClick ClickedUploadFiles
 
-        Nothing ->
-            El.el
-                [ Events.onClick ClickedUploadFiles ]
-                (cross (S.transform ""))
+                Just { dragIndex } ->
+                    Events.onMouseUp (DeleteImage dragIndex)
+            ]
 
 
 
