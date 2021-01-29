@@ -1,7 +1,8 @@
 module Page.AddTranslation exposing (Model, Msg, init, update, view)
 
+import Api exposing (Cred)
 import Common exposing (Context)
-import Element as El exposing (Attribute, Element)
+import Element as El exposing (Element)
 import Element.Background as Background
 import Element.Border as Border
 import Element.Events as Events
@@ -13,7 +14,7 @@ import GraphQLBook.Object.Book as GBook
 import GraphQLBook.Query as Query
 import GraphQLBook.Scalar exposing (Id(..))
 import Graphql.Http exposing (Error)
-import Graphql.Operation exposing (RootMutation, RootQuery)
+import Graphql.Operation exposing (RootMutation)
 import Graphql.OptionalArgument exposing (OptionalArgument(..))
 import Graphql.SelectionSet as SelectionSet exposing (SelectionSet)
 import RemoteData exposing (RemoteData(..))
@@ -28,20 +29,22 @@ import Types exposing (Language)
 
 type alias Model =
     { context : Context
+    , cred : Cred
     , book : RemoteData (Error (Maybe Book)) (Maybe Book)
     , form : Form
     , languages : RemoteData (Error (List Language)) (List Language)
     }
 
 
-init : Context -> String -> ( Model, Cmd Msg )
-init context bookId =
+init : Context -> Cred -> String -> ( Model, Cmd Msg )
+init context cred bookId =
     ( { context = context
+      , cred = cred
       , book = Loading
       , form = emptyForm
       , languages = Loading
       }
-    , Cmd.batch [ getBook bookId, getlanguages ]
+    , Cmd.batch [ getBook cred bookId, getlanguages cred ]
     )
 
 
@@ -95,7 +98,7 @@ type Msg
     | ClickedStartTranslation Id Form
     | GotBook (RemoteData (Error (Maybe Book)) (Maybe Book))
     | GotTranslationBookId (RemoteData (Error Id) Id)
-    | Gotlanguages (RemoteData (Error (List Language)) (List Language))
+    | GotLanguages (RemoteData (Error (List Language)) (List Language))
 
 
 
@@ -127,7 +130,7 @@ update msg model =
             ( { model | form = { modelForm | notes = notes } }, Cmd.none )
 
         ClickedStartTranslation bookId form ->
-            ( model, saveBook bookId form )
+            ( model, saveBook model.cred bookId form )
 
         GotBook result ->
             ( { model | book = result }, Cmd.none )
@@ -140,7 +143,7 @@ update msg model =
                 _ ->
                     ( model, Cmd.none )
 
-        Gotlanguages result ->
+        GotLanguages result ->
             ( { model | languages = result }, Cmd.none )
 
 
@@ -299,21 +302,9 @@ viewLanguageChoice language languages =
 -- GRAPHQL
 
 
-languagesQuery : SelectionSet (List Language) RootQuery
-languagesQuery =
-    Query.languages Types.languageSelection
-
-
-getlanguages : Cmd Msg
-getlanguages =
-    languagesQuery
-        |> Graphql.Http.queryRequest "/api"
-        |> Graphql.Http.send (RemoteData.fromResult >> Gotlanguages)
-
-
-booksQuery : String -> SelectionSet (Maybe Book) RootQuery
-booksQuery bookId =
-    Query.book { id = Id bookId } bookSelection
+getlanguages : Cred -> Cmd Msg
+getlanguages cred =
+    Api.queryRequest cred (Query.languages Types.languageSelection) GotLanguages
 
 
 bookSelection : SelectionSet Book GraphQLBook.Object.Book
@@ -325,11 +316,9 @@ bookSelection =
         (GBook.language Types.languageSelection)
 
 
-getBook : String -> Cmd Msg
-getBook bookId =
-    booksQuery bookId
-        |> Graphql.Http.queryRequest "/api"
-        |> Graphql.Http.send (RemoteData.fromResult >> GotBook)
+getBook : Cred -> String -> Cmd Msg
+getBook cred bookId =
+    Api.queryRequest cred (Query.book { id = Id bookId } bookSelection) GotBook
 
 
 saveBookMutation : Id -> Form -> SelectionSet Id RootMutation
@@ -348,8 +337,6 @@ saveBookMutation bookId { title, author, language, translator, notes } =
         GBook.id
 
 
-saveBook : Id -> Form -> Cmd Msg
-saveBook bookId form =
-    saveBookMutation bookId form
-        |> Graphql.Http.mutationRequest "/api"
-        |> Graphql.Http.send (RemoteData.fromResult >> GotTranslationBookId)
+saveBook : Cred -> Id -> Form -> Cmd Msg
+saveBook cred bookId form =
+    Api.mutationRequest cred (saveBookMutation bookId form) GotTranslationBookId

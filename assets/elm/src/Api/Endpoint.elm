@@ -1,25 +1,18 @@
 module Api.Endpoint exposing
     ( Endpoint
-    , availabilities
-    , availabilitiesID
-    , candidates
-    , faculty
+    , addBook
     , githubLogIn
     , githubUrl
-    , interviewTimes
-    , matrix
-    , matrixID
-    , matrixUser
-    , matrixZoom
+    , graphql
+    , mutationRequest
+    , pages
+    , queryRequest
     , request
-    , slateLogIn
-    , timeBlocks
-    , times
-    , userAvailabilities
-    , zoomLogIn
-    , zoomUrl
     )
 
+import Graphql.Http exposing (Request)
+import Graphql.Operation exposing (RootMutation, RootQuery)
+import Graphql.SelectionSet exposing (SelectionSet)
 import Http exposing (Body, Expect, Header)
 import Maybe.Extra as Maybe
 import Url.Builder exposing (QueryParameter)
@@ -71,25 +64,41 @@ request config =
 
 
 
+-- GRAPHQL
+
+
+mutationRequest : Endpoint -> SelectionSet a RootMutation -> Request a
+mutationRequest endpoint =
+    Graphql.Http.mutationRequest (unwrap endpoint)
+
+
+queryRequest : Endpoint -> SelectionSet a RootQuery -> Request a
+queryRequest endpoint =
+    Graphql.Http.queryRequest (unwrap endpoint)
+
+
+
 -- ENDPOINTS
 
 
-slateLogIn : String -> String -> Endpoint
-slateLogIn username password =
-    url [ "api", "login", "slate" ]
-        [ Url.Builder.string "username" username
-        , Url.Builder.string "password" password
-        ]
+graphql : Endpoint
+graphql =
+    url [ "api" ] []
+
+
+addBook : Endpoint
+addBook =
+    url [ "api", "rest", "books" ] []
+
+
+pages : Endpoint
+pages =
+    url [ "api", "rest", "pages" ] []
 
 
 githubUrl : Endpoint
 githubUrl =
     url [ "api", "oauth", "github" ] []
-
-
-zoomUrl : Endpoint
-zoomUrl =
-    url [ "api", "oauth", "zoom" ] []
 
 
 githubLogIn : Maybe String -> Maybe String -> Endpoint
@@ -104,77 +113,3 @@ githubLogIn maybeCode maybeState =
             toQuery "code" maybeCode ++ toQuery "state" maybeState
     in
     url [ "api", "oauth", "callback" ] queries
-
-
-zoomLogIn : Maybe String -> Maybe String -> Endpoint
-zoomLogIn maybeCode maybeState =
-    let
-        toQuery key maybeValue =
-            maybeValue
-                |> Maybe.toList
-                |> List.map (Url.Builder.string key)
-
-        queries =
-            toQuery "code" maybeCode ++ toQuery "state" maybeState
-    in
-    url [ "api", "oauth", "zoom", "callback" ] queries
-
-
-timeBlocks : Endpoint
-timeBlocks =
-    url [ "api", "time_blocks" ] []
-
-
-interviewTimes : Endpoint
-interviewTimes =
-    url [ "api", "times" ] []
-
-
-availabilities : Endpoint
-availabilities =
-    url [ "api", "availabilities" ] []
-
-
-availabilitiesID : Int -> Endpoint
-availabilitiesID id =
-    url [ "api", "availabilities", String.fromInt id ] []
-
-
-userAvailabilities : Endpoint
-userAvailabilities =
-    url [ "api", "availabilities", "user" ] []
-
-
-faculty : Endpoint
-faculty =
-    url [ "api", "faculty" ] []
-
-
-candidates : Endpoint
-candidates =
-    url [ "api", "applicants" ] []
-
-
-matrix : Endpoint
-matrix =
-    url [ "api", "matrix" ] []
-
-
-matrixUser : Endpoint
-matrixUser =
-    url [ "api", "matrix", "user" ] []
-
-
-matrixZoom : Int -> Endpoint
-matrixZoom id =
-    url [ "api", "matrix", "zoom", String.fromInt id ] []
-
-
-matrixID : Int -> Endpoint
-matrixID id =
-    url [ "api", "matrix", String.fromInt id ] []
-
-
-times : Endpoint
-times =
-    url [ "api", "times" ] []

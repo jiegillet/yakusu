@@ -1,18 +1,18 @@
 module Common exposing (Context, height, showMonth, showWeekday, viewErrors, viewFeedback, viewHeader, width)
 
+-- import Element.Input as Input
+
 import Api exposing (Cred)
 import Browser.Navigation exposing (Key)
 import Element as El exposing (Element)
 import Element.Background as Background
 import Element.Border as Border
 import Element.Font as Font
-import Element.Input as Input
 import Element.Lazy as Lazy
 import Http exposing (Error(..))
-import Json.Decode as Decode exposing (Decoder)
 import RemoteData exposing (RemoteData(..), WebData)
 import Style
-import Time exposing (Month(..), Weekday(..), Zone)
+import Time exposing (Month(..), Weekday(..))
 
 
 type alias Context =

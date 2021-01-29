@@ -230,19 +230,19 @@ changeRouteTo maybeRoute model =
                     ( NotFound context, Cmd.none )
 
                 Just Route.Books ->
-                    Books.init context
+                    Books.init context cred
                         |> updateWith Books GotBooksMsg
 
                 Just Route.AddBook ->
-                    AddBook.init context
+                    AddBook.init context cred
                         |> updateWith AddBook GotAddBookMsg
 
                 Just (Route.BookAdded bookId) ->
-                    BookAdded.init context bookId
+                    BookAdded.init context cred bookId
                         |> updateWith BookAdded GotBookAddedMsg
 
                 Just (Route.AddTranslation bookId) ->
-                    AddTranslation.init context bookId
+                    AddTranslation.init context cred bookId
                         |> updateWith AddTranslation GotAddTranslationMsg
 
                 Just Route.Login ->
@@ -250,7 +250,7 @@ changeRouteTo maybeRoute model =
                         |> updateWith Login GotLoginMsg
 
                 Just (Route.Translation id) ->
-                    Translation.init context id
+                    Translation.init context cred id
                         |> updateWith Translation GotTranslationMsg
 
 

@@ -6,9 +6,11 @@ port module Api exposing
     , credName
     , get
     , logout
+    , mutationRequest
     , noCredGet
     , patch
     , post
+    , queryRequest
     , storeChanged
     , storeCreds
     )
@@ -16,13 +18,15 @@ port module Api exposing
 import Api.Endpoint as Endpoint exposing (Endpoint)
 import Browser
 import Browser.Navigation exposing (Key)
-import Dict exposing (Dict)
-import Http exposing (Error)
+import Graphql.Http exposing (Error)
+import Graphql.Operation exposing (RootMutation, RootQuery)
+import Graphql.SelectionSet exposing (SelectionSet)
+import Http exposing (Body, Expect)
 import Json.Decode as Decode exposing (Decoder)
 import Json.Encode as Encode exposing (Value)
 import Json.Encode.Extra as Encode
 import Maybe.Extra as Maybe
-import RemoteData exposing (WebData)
+import RemoteData exposing (RemoteData, WebData)
 import Url exposing (Url)
 
 
@@ -180,14 +184,14 @@ get url cred toMsg decoder =
         }
 
 
-post : Endpoint -> Cred -> Value -> (WebData a -> msg) -> Decoder a -> Cmd msg
-post url cred bodyEncoder toMsg decoder =
+post : Endpoint -> Cred -> Body -> Expect msg -> Cmd msg
+post url cred body expect =
     Endpoint.request
         { method = "POST"
         , url = url
-        , expect = Http.expectJson (RemoteData.fromResult >> toMsg) decoder
+        , expect = expect
         , headers = [ credHeader cred ]
-        , body = Http.jsonBody bodyEncoder
+        , body = body
         , timeout = Nothing
         , tracker = Nothing
         }
@@ -207,19 +211,20 @@ patch url cred bodyEncoder toMsg decoder =
 
 
 
--- USER SPECIFIC
+-- GRAPHQL
 
 
-dictOf :
-    Decoder { a | id : comparable }
-    -> Decoder (Dict comparable { a | id : comparable })
-dictOf decoder =
-    Decode.list decoder
-        |> Decode.field "data"
-        |> Decode.map (List.map extractId)
-        |> Decode.map Dict.fromList
+queryRequest : Cred -> SelectionSet a RootQuery -> (RemoteData (Error a) a -> msg) -> Cmd msg
+queryRequest cred query toMsg =
+    query
+        |> Endpoint.queryRequest Endpoint.graphql
+        |> Graphql.Http.withHeader "authorization" ("Bearer " ++ getToken cred)
+        |> Graphql.Http.send (RemoteData.fromResult >> toMsg)
 
 
-extractId : { a | id : id } -> ( id, { a | id : id } )
-extractId ({ id } as record) =
-    ( id, record )
+mutationRequest : Cred -> SelectionSet a RootMutation -> (RemoteData (Error a) a -> msg) -> Cmd msg
+mutationRequest cred mutation toMsg =
+    mutation
+        |> Endpoint.mutationRequest Endpoint.graphql
+        |> Graphql.Http.withHeader "authorization" ("Bearer " ++ getToken cred)
+        |> Graphql.Http.send (RemoteData.fromResult >> toMsg)

@@ -1,6 +1,8 @@
 module Page.AddBook exposing (Model, Msg, init, subscriptions, update, view)
 
 import Animation
+import Api exposing (Cred)
+import Api.Endpoint as Endpoint
 import Base64
 import Browser.Dom as Dom
 import Browser.Events
@@ -19,11 +21,9 @@ import File exposing (File)
 import File.Select as Select
 import GraphQLBook.Query as Query
 import Graphql.Http exposing (Error)
-import Graphql.Operation exposing (RootQuery)
-import Graphql.SelectionSet exposing (SelectionSet)
 import Html.Attributes as Attributes
 import Html.Events
-import Http exposing (Response(..))
+import Http
 import Json.Decode as Decode exposing (Decoder)
 import Json.Encode as Encode exposing (Value)
 import RemoteData exposing (RemoteData(..), WebData)
@@ -41,6 +41,7 @@ import Types exposing (Category, Language)
 
 type alias Model =
     { context : Context
+    , cred : Cred
     , categories : RemoteData (Error (List Category)) (List Category)
     , languages : RemoteData (Error (List Language)) (List Language)
     , title : String
@@ -55,9 +56,10 @@ type alias Model =
     }
 
 
-init : Context -> ( Model, Cmd Msg )
-init context =
+init : Context -> Cred -> ( Model, Cmd Msg )
+init context cred =
     ( { context = context
+      , cred = cred
       , hoverUploadBox = False
       , previews = []
       , categories = Loading
@@ -74,7 +76,7 @@ init context =
                 , Animation.transformOrigin (Animation.percent 50) (Animation.percent 50) (Animation.percent 0)
                 ]
       }
-    , Cmd.batch [ getCategories, getlanguages ]
+    , Cmd.batch [ getCategories cred, getlanguages cred ]
     )
 
 
@@ -225,7 +227,7 @@ update msg model =
             case ( model.category, maybeLanguage ) of
                 ( Just category, Just language ) ->
                     ( model
-                    , postBook model.title model.author language category model.previews
+                    , postBook model.cred model.title model.author language category model.previews
                     )
 
                 _ ->
@@ -255,7 +257,7 @@ update msg model =
                         ++ List.map (always emptyImage) filteredFiles
               }
             , filteredFiles
-                |> List.indexedMap (\index -> uploadImage (index + offset))
+                |> List.indexedMap (\index -> uploadImage model.cred (index + offset))
                 |> Cmd.batch
             )
 
@@ -757,29 +759,33 @@ decodeBookId =
     Decode.at [ "data", "id" ] Decode.string
 
 
-postBook : String -> String -> Language -> Category -> List Image -> Cmd Msg
-postBook title author language category previews =
-    Http.post
-        { url = "api/rest/books"
-        , body =
+postBook : Cred -> String -> String -> Language -> Category -> List Image -> Cmd Msg
+postBook cred title author language category previews =
+    let
+        body =
             Http.stringPart "book" (Encode.encode 0 (encodeBook title author language category))
                 :: List.map (.file >> Http.bytesPart "pages[]" "image/jpeg") previews
                 |> Http.multipartBody
-        , expect = Http.expectJson (RemoteData.fromResult >> BookSaved) decodeBookId
-        }
+
+        expect =
+            Http.expectJson (RemoteData.fromResult >> BookSaved) decodeBookId
+    in
+    Api.post Endpoint.addBook cred body expect
 
 
-uploadImage : Int -> File -> Cmd Msg
-uploadImage page file =
-    Http.post
-        { url = "api/rest/pages"
-        , body =
+uploadImage : Cred -> Int -> File -> Cmd Msg
+uploadImage cred page file =
+    let
+        body =
             Http.multipartBody
                 [ Http.stringPart "page" (String.fromInt page)
                 , Http.filePart "image" file
                 ]
-        , expect = Http.expectBytes (RemoteData.fromResult >> GotCompressedImage) fileImageDecoder
-        }
+
+        expect =
+            Http.expectBytes (RemoteData.fromResult >> GotCompressedImage) fileImageDecoder
+    in
+    Api.post Endpoint.pages cred body expect
 
 
 fileImageDecoder : Bytes.Decode.Decoder ( Int, Image )
@@ -804,25 +810,11 @@ fileImageDecoder =
 -- GRAPHQL
 
 
-categoriesQuery : SelectionSet (List Category) RootQuery
-categoriesQuery =
-    Query.categories Types.categorySelection
+getCategories : Cred -> Cmd Msg
+getCategories cred =
+    Api.queryRequest cred (Query.categories Types.categorySelection) GotCategories
 
 
-getCategories : Cmd Msg
-getCategories =
-    categoriesQuery
-        |> Graphql.Http.queryRequest "/api"
-        |> Graphql.Http.send (RemoteData.fromResult >> GotCategories)
-
-
-languagesQuery : SelectionSet (List Language) RootQuery
-languagesQuery =
-    Query.languages Types.languageSelection
-
-
-getlanguages : Cmd Msg
-getlanguages =
-    languagesQuery
-        |> Graphql.Http.queryRequest "/api"
-        |> Graphql.Http.send (RemoteData.fromResult >> GotLanguages)
+getlanguages : Cred -> Cmd Msg
+getlanguages cred =
+    Api.queryRequest cred (Query.languages Types.languageSelection) GotLanguages

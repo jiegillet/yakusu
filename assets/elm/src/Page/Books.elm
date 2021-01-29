@@ -1,5 +1,6 @@
 module Page.Books exposing (Model, Msg, init, update, view)
 
+import Api exposing (Cred)
 import Common exposing (Context, height, width)
 import Element as El exposing (Element, column)
 import Element.Background as Background
@@ -11,7 +12,6 @@ import GraphQLBook.Object.Book as GBook exposing (category, id, language)
 import GraphQLBook.Query as Query
 import GraphQLBook.Scalar exposing (Id)
 import Graphql.Http exposing (Error)
-import Graphql.Operation exposing (RootQuery)
 import Graphql.SelectionSet as SelectionSet exposing (SelectionSet)
 import RemoteData exposing (RemoteData(..))
 import Route
@@ -44,6 +44,7 @@ type alias BookTranslation =
 
 type alias Model =
     { context : Context
+    , cred : Cred
     , books : RemoteData (Error (List Book)) (List Book)
     , categories : RemoteData (Error (List Category)) (List Category)
     , checkedCategories : List Category
@@ -51,15 +52,16 @@ type alias Model =
     }
 
 
-init : Context -> ( Model, Cmd Msg )
-init context =
+init : Context -> Cred -> ( Model, Cmd Msg )
+init context cred =
     ( { context = context
+      , cred = cred
       , books = Loading
       , categories = Loading
       , checkedCategories = []
       , tableOrdering = ( Title, Ascending )
       }
-    , Cmd.batch [ requestBooks, requestCategories ]
+    , Cmd.batch [ requestBooks cred, requestCategories cred ]
     )
 
 
@@ -380,11 +382,6 @@ viewBooks checkedCategories ( column, order ) books =
 -- GRAPHQL
 
 
-booksQuery : SelectionSet (List Book) RootQuery
-booksQuery =
-    Query.books bookSelection
-
-
 bookSelection : SelectionSet Book GraphQLBook.Object.Book
 bookSelection =
     SelectionSet.map6 Book
@@ -406,15 +403,11 @@ bookTranslationSelection =
         (SelectionSet.withDefault "" GBook.translator)
 
 
-requestBooks : Cmd Msg
-requestBooks =
-    booksQuery
-        |> Graphql.Http.queryRequest "/api"
-        |> Graphql.Http.send (RemoteData.fromResult >> GotBooks)
+requestBooks : Cred -> Cmd Msg
+requestBooks cred =
+    Api.queryRequest cred (Query.books bookSelection) GotBooks
 
 
-requestCategories : Cmd Msg
-requestCategories =
-    Query.categories Types.categorySelection
-        |> Graphql.Http.queryRequest "/api"
-        |> Graphql.Http.send (RemoteData.fromResult >> GotCategories)
+requestCategories : Cred -> Cmd Msg
+requestCategories cred =
+    Api.queryRequest cred (Query.categories Types.categorySelection) GotCategories

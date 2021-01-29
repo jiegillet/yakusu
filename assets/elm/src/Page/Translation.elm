@@ -1,5 +1,6 @@
 module Page.Translation exposing (Model, Msg, init, subscriptions, update, view)
 
+import Api exposing (Cred)
 import Browser.Events as Events
 import Common exposing (Context)
 import Element as El exposing (Element)
@@ -32,6 +33,7 @@ import ZipList exposing (ZipList)
 
 type alias Model =
     { context : Context
+    , cred : Cred
     , bookId : String
     , drawingState : DrawingState
     , text : String
@@ -42,9 +44,10 @@ type alias Model =
     }
 
 
-init : Context -> String -> ( Model, Cmd Msg )
-init context bookId =
+init : Context -> Cred -> String -> ( Model, Cmd Msg )
+init context cred bookId =
     ( { context = context
+      , cred = cred
       , bookId = bookId
       , drawingState = NotDrawing
       , text = ""
@@ -53,7 +56,7 @@ init context bookId =
       , pages = Loading
       , mode = Read
       }
-    , requestBook bookId
+    , requestBook cred bookId
     )
 
 
@@ -207,7 +210,7 @@ update msg model =
             )
 
         ClickedDelete translation ->
-            ( model, deleteTranslation translation )
+            ( model, deleteTranslation model.cred translation )
 
         ClickedResetPath ->
             ( { model | path = "" }, Cmd.none )
@@ -311,12 +314,12 @@ saveTranslationAndMove model move =
 
             Edit translation _ ->
                 ( model
-                , editTranslation move model.bookId { translation | text = model.text, path = model.path }
+                , editTranslation model.cred move model.bookId { translation | text = model.text, path = model.path }
                 )
 
             NewTranslation pageId ->
                 ( model
-                , saveTranslation move model.bookId (Translation "" pageId model.text model.path)
+                , saveTranslation model.cred move model.bookId (Translation "" pageId model.text model.path)
                 )
 
 
@@ -367,7 +370,7 @@ decodePosition : Decoder Position
 decodePosition =
     Decode.map2 Position
         (Decode.field "pageX" Decode.int)
-        (Decode.field "pageY" Decode.int)
+        (Decode.field "pageY" Decode.int |> Decode.map (\n -> n - 100))
 
 
 
@@ -713,29 +716,21 @@ translationMutation bookId { id, pageId, text, path } =
     Mutation.createTranslation inputTranslation Types.translationSelection
 
 
-requestBook : String -> Cmd Msg
-requestBook bookId =
-    bookQuery bookId
-        |> Graphql.Http.queryRequest "/api"
-        |> Graphql.Http.send (RemoteData.fromResult >> GotBook)
+requestBook : Cred -> String -> Cmd Msg
+requestBook cred bookId =
+    Api.queryRequest cred (bookQuery bookId) GotBook
 
 
-saveTranslation : (ZipList Page -> ZipList Page) -> String -> Translation -> Cmd Msg
-saveTranslation move bookId translation =
-    translationMutation bookId translation
-        |> Graphql.Http.mutationRequest "/api"
-        |> Graphql.Http.send (RemoteData.fromResult >> AddedTranslation move)
+saveTranslation : Cred -> (ZipList Page -> ZipList Page) -> String -> Translation -> Cmd Msg
+saveTranslation cred move bookId translation =
+    Api.mutationRequest cred (translationMutation bookId translation) (AddedTranslation move)
 
 
-editTranslation : (ZipList Page -> ZipList Page) -> String -> Translation -> Cmd Msg
-editTranslation move bookId translation =
-    translationMutation bookId translation
-        |> Graphql.Http.mutationRequest "/api"
-        |> Graphql.Http.send (RemoteData.fromResult >> EditedTranslation move)
+editTranslation : Cred -> (ZipList Page -> ZipList Page) -> String -> Translation -> Cmd Msg
+editTranslation cred move bookId translation =
+    Api.mutationRequest cred (translationMutation bookId translation) (EditedTranslation move)
 
 
-deleteTranslation : Translation -> Cmd Msg
-deleteTranslation { id } =
-    Mutation.deleteTranslation { id = Id id } Types.translationSelection
-        |> Graphql.Http.mutationRequest "/api"
-        |> Graphql.Http.send (RemoteData.fromResult >> DeletedTranslation)
+deleteTranslation : Cred -> Translation -> Cmd Msg
+deleteTranslation cred { id } =
+    Api.mutationRequest cred (Mutation.deleteTranslation { id = Id id } Types.translationSelection) DeletedTranslation

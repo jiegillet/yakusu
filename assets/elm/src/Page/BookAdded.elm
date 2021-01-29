@@ -1,15 +1,13 @@
 module Page.BookAdded exposing (Model, Msg, init, update, view)
 
+import Api exposing (Cred)
 import Common exposing (Context, height, width)
-import Element as El exposing (Element, centerY)
+import Element as El exposing (Element)
 import Element.Background as Background
 import Element.Border as Border
-import Element.Events as Events
 import Element.Font as Font
-import Element.Input as Input
 import GraphQLBook.Object
-import GraphQLBook.Object.Book as GBook exposing (author, category, id, language, title)
-import GraphQLBook.Object.Language exposing (language)
+import GraphQLBook.Object.Book as GBook
 import GraphQLBook.Query as Query
 import GraphQLBook.Scalar exposing (Id(..))
 import Graphql.Http exposing (Error)
@@ -27,16 +25,18 @@ import Types exposing (Category, Language)
 
 type alias Model =
     { context : Context
+    , cred : Cred
     , book : RemoteData (Error (Maybe Book)) (Maybe Book)
     }
 
 
-init : Context -> String -> ( Model, Cmd Msg )
-init context bookId =
+init : Context -> Cred -> String -> ( Model, Cmd Msg )
+init context cred bookId =
     ( { context = context
+      , cred = cred
       , book = Loading
       }
-    , requestBook bookId
+    , requestBook cred bookId
     )
 
 
@@ -191,8 +191,6 @@ bookSelection =
         (GBook.category Types.categorySelection)
 
 
-requestBook : String -> Cmd Msg
-requestBook bookId =
-    bookQuery bookId
-        |> Graphql.Http.queryRequest "/api"
-        |> Graphql.Http.send (RemoteData.fromResult >> GotBook)
+requestBook : Cred -> String -> Cmd Msg
+requestBook cred bookId =
+    Api.queryRequest cred (bookQuery bookId) GotBook
