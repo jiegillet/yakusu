@@ -23,3 +23,7 @@ type Page
 
 type Translation
     = Translation
+
+
+type TranslationBook
+    = TranslationBook

@@ -11,6 +11,7 @@ import Element.Input as Input exposing (OptionState(..))
 import GraphQLBook.Mutation as Mutation
 import GraphQLBook.Object
 import GraphQLBook.Object.Book as GBook
+import GraphQLBook.Object.TranslationBook as TBook
 import GraphQLBook.Query as Query
 import GraphQLBook.Scalar exposing (Id(..))
 import Graphql.Http exposing (Error)
@@ -667,10 +668,10 @@ viewTranslation mode text color translation =
 
 bookQuery : String -> SelectionSet (Maybe (ZipList Page)) RootQuery
 bookQuery bookId =
-    Query.book (Query.BookRequiredArguments (Id bookId)) pagesSelection
+    Query.translationBook (Query.TranslationBookRequiredArguments (Id bookId)) pagesSelection
 
 
-pagesSelection : SelectionSet (ZipList Page) GraphQLBook.Object.Book
+pagesSelection : SelectionSet (ZipList Page) GraphQLBook.Object.TranslationBook
 pagesSelection =
     let
         toZip pages =
@@ -691,8 +692,8 @@ pagesSelection =
             ZipList.map getTranslations zipPages
     in
     SelectionSet.map2 toPage
-        (SelectionSet.mapOrFail toZip (GBook.pages Types.pageSelection))
-        (GBook.translations Types.translationSelection)
+        (SelectionSet.mapOrFail toZip (TBook.book (GBook.pages Types.pageSelection)))
+        (TBook.translations Types.translationSelection)
 
 
 translationMutation : String -> Translation -> SelectionSet (Maybe Translation) RootMutation
@@ -706,7 +707,7 @@ translationMutation bookId { id, pageId, text, path } =
 
                     else
                         Present (Id id)
-                , bookId = Id bookId
+                , translationBookId = Id bookId
                 , pageId = Id pageId
                 , text = text
                 , path = path

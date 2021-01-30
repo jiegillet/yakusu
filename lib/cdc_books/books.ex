@@ -6,6 +6,7 @@ defmodule CdcBooks.Books do
   import Ecto.Query, warn: false
   alias CdcBooks.Repo
   alias CdcBooks.Books.Book
+  alias CdcBooks.Books.TranslationBook
 
   @doc """
   Returns the list of books.
@@ -18,21 +19,6 @@ defmodule CdcBooks.Books do
   """
   def list_books do
     Repo.all(Book)
-  end
-
-  def list_original_books() do
-    from(b in Book,
-      where: is_nil(b.original_id),
-      preload: [:category]
-    )
-    |> Repo.all()
-  end
-
-  def list_book_translations(%Book{} = book) do
-    from(b in Book,
-      where: b.original_id == ^book.id
-    )
-    |> Repo.all()
   end
 
   @doc """
@@ -50,6 +36,8 @@ defmodule CdcBooks.Books do
 
   """
   def get_book!(id), do: Repo.get!(Book, id)
+
+  def get_book(id), do: Repo.get(Book, id)
 
   @doc """
   Creates a book.
@@ -131,13 +119,9 @@ defmodule CdcBooks.Books do
     Repo.all(Page)
   end
 
-  def list_pages(%Book{original_id: nil}) do
-    []
-  end
-
-  def list_pages(%Book{} = book) do
+  def list_pages(%Book{id: id}) do
     from(p in Page,
-      where: p.book_id == ^book.original_id
+      where: p.book_id == ^id
     )
     |> Repo.all()
   end
@@ -238,16 +222,16 @@ defmodule CdcBooks.Books do
     Repo.all(Translation)
   end
 
-  def list_translations(%Book{} = book) do
+  def list_translations(%Page{id: id}) do
     from(t in Translation,
-      where: t.book_id == ^book.id
+      where: t.page_id == ^id
     )
     |> Repo.all()
   end
 
-  def list_translations(%Page{} = page) do
+  def list_translations(%TranslationBook{id: id}) do
     from(t in Translation,
-      where: t.page_id == ^page.id
+      where: t.translation_book_id == ^id
     )
     |> Repo.all()
   end
@@ -429,4 +413,106 @@ defmodule CdcBooks.Books do
     Category.changeset(category, attrs)
   end
 
+  @doc """
+  Returns the list of translation_books.
+
+  ## Examples
+
+      iex> list_translation_books()
+      [%TranslationBook{}, ...]
+
+  """
+  def list_translation_books do
+    Repo.all(TranslationBook)
+  end
+
+  def list_book_translations(%Book{id: id}) do
+    from(p in TranslationBook,
+      where: p.book_id == ^id
+    )
+    |> Repo.all()
+  end
+
+  @doc """
+  Gets a single translation_book.
+
+  Raises `Ecto.NoResultsError` if the Translation book does not exist.
+
+  ## Examples
+
+      iex> get_translation_book!(123)
+      %TranslationBook{}
+
+      iex> get_translation_book!(456)
+      ** (Ecto.NoResultsError)
+
+  """
+  def get_translation_book!(id), do: Repo.get!(TranslationBook, id)
+
+  def get_translation_book(id), do: Repo.get(TranslationBook, id)
+
+  @doc """
+  Creates a translation_book.
+
+  ## Examples
+
+      iex> create_translation_book(%{field: value})
+      {:ok, %TranslationBook{}}
+
+      iex> create_translation_book(%{field: bad_value})
+      {:error, %Ecto.Changeset{}}
+
+  """
+  def create_translation_book(attrs \\ %{}) do
+    %TranslationBook{}
+    |> TranslationBook.changeset(attrs)
+    |> Repo.insert()
+  end
+
+  @doc """
+  Updates a translation_book.
+
+  ## Examples
+
+      iex> update_translation_book(translation_book, %{field: new_value})
+      {:ok, %TranslationBook{}}
+
+      iex> update_translation_book(translation_book, %{field: bad_value})
+      {:error, %Ecto.Changeset{}}
+
+  """
+  def update_translation_book(%TranslationBook{} = translation_book, attrs) do
+    translation_book
+    |> TranslationBook.changeset(attrs)
+    |> Repo.update()
+  end
+
+  @doc """
+  Deletes a translation_book.
+
+  ## Examples
+
+      iex> delete_translation_book(translation_book)
+      {:ok, %TranslationBook{}}
+
+      iex> delete_translation_book(translation_book)
+      {:error, %Ecto.Changeset{}}
+
+  """
+  def delete_translation_book(%TranslationBook{} = translation_book) do
+    Repo.delete(translation_book)
+  end
+
+  @doc """
+  Returns an `%Ecto.Changeset{}` for tracking translation_book changes.
+
+  ## Examples
+
+      iex> change_translation_book(translation_book)
+      %Ecto.Changeset{data: %TranslationBook{}}
+
+  """
+  def change_translation_book(%TranslationBook{} = translation_book, attrs \\ %{}) do
+    TranslationBook.changeset(translation_book, attrs)
+  end
 end

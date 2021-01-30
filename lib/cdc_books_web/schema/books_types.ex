@@ -7,11 +7,11 @@ defmodule CdcBooksWeb.Schema.BooksTypes do
     field :id, non_null(:id)
     field :title, non_null(:string)
     field :author, non_null(:string)
+
     field :language, non_null(:language) do
       resolve(&Resolvers.Books.get_language/3)
     end
-    field :translator, :string
-    field :notes, :string
+
     field :category, non_null(:category) do
       resolve(&Resolvers.Books.get_category/3)
     end
@@ -20,9 +20,27 @@ defmodule CdcBooksWeb.Schema.BooksTypes do
       resolve(&Resolvers.Books.list_pages/3)
     end
 
-    field :book_translations, non_null(list_of(non_null(:book))) do
+    field :book_translations, non_null(list_of(non_null(:translation_book))) do
       resolve(&Resolvers.Books.list_book_translations/3)
     end
+  end
+
+  @desc "A book translation"
+  object :translation_book do
+    field :id, non_null(:id)
+    field :title, non_null(:string)
+    field :author, non_null(:string)
+
+    field :book, non_null(:book) do
+      resolve(&Resolvers.Books.get_book/3)
+    end
+
+    field :language, non_null(:language) do
+      resolve(&Resolvers.Books.get_language/3)
+    end
+
+    field :translator, non_null(:string)
+    field :notes, non_null(:string)
 
     field :translations, non_null(list_of(non_null(:translation))) do
       resolve(&Resolvers.Books.list_translations/3)
@@ -40,7 +58,7 @@ defmodule CdcBooksWeb.Schema.BooksTypes do
   object :translation do
     field :id, non_null(:id)
     field :page_id, non_null(:id)
-    field :book_id, non_null(:id)
+    field :translation_book_id, non_null(:id)
     field :text, non_null(:string)
     field :path, non_null(:string)
   end
@@ -49,7 +67,7 @@ defmodule CdcBooksWeb.Schema.BooksTypes do
   input_object :input_translation do
     field :id, :id
     field :page_id, non_null(:id)
-    field :book_id, non_null(:id)
+    field :translation_book_id, non_null(:id)
     field :text, non_null(:string)
     field :path, non_null(:string)
   end

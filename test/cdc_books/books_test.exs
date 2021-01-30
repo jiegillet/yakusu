@@ -309,4 +309,69 @@ defmodule CdcBooks.BooksTest do
       assert %Ecto.Changeset{} = Books.change_category(category)
     end
   end
+
+  describe "translation_books" do
+    alias CdcBooks.Books.TranslationBook
+
+    @valid_attrs %{author: "some author", notes: "some notes", title: "some title", translator: "some translator"}
+    @update_attrs %{author: "some updated author", notes: "some updated notes", title: "some updated title", translator: "some updated translator"}
+    @invalid_attrs %{author: nil, notes: nil, title: nil, translator: nil}
+
+    def translation_book_fixture(attrs \\ %{}) do
+      {:ok, translation_book} =
+        attrs
+        |> Enum.into(@valid_attrs)
+        |> Books.create_translation_book()
+
+      translation_book
+    end
+
+    test "list_translation_books/0 returns all translation_books" do
+      translation_book = translation_book_fixture()
+      assert Books.list_translation_books() == [translation_book]
+    end
+
+    test "get_translation_book!/1 returns the translation_book with given id" do
+      translation_book = translation_book_fixture()
+      assert Books.get_translation_book!(translation_book.id) == translation_book
+    end
+
+    test "create_translation_book/1 with valid data creates a translation_book" do
+      assert {:ok, %TranslationBook{} = translation_book} = Books.create_translation_book(@valid_attrs)
+      assert translation_book.author == "some author"
+      assert translation_book.notes == "some notes"
+      assert translation_book.title == "some title"
+      assert translation_book.translator == "some translator"
+    end
+
+    test "create_translation_book/1 with invalid data returns error changeset" do
+      assert {:error, %Ecto.Changeset{}} = Books.create_translation_book(@invalid_attrs)
+    end
+
+    test "update_translation_book/2 with valid data updates the translation_book" do
+      translation_book = translation_book_fixture()
+      assert {:ok, %TranslationBook{} = translation_book} = Books.update_translation_book(translation_book, @update_attrs)
+      assert translation_book.author == "some updated author"
+      assert translation_book.notes == "some updated notes"
+      assert translation_book.title == "some updated title"
+      assert translation_book.translator == "some updated translator"
+    end
+
+    test "update_translation_book/2 with invalid data returns error changeset" do
+      translation_book = translation_book_fixture()
+      assert {:error, %Ecto.Changeset{}} = Books.update_translation_book(translation_book, @invalid_attrs)
+      assert translation_book == Books.get_translation_book!(translation_book.id)
+    end
+
+    test "delete_translation_book/1 deletes the translation_book" do
+      translation_book = translation_book_fixture()
+      assert {:ok, %TranslationBook{}} = Books.delete_translation_book(translation_book)
+      assert_raise Ecto.NoResultsError, fn -> Books.get_translation_book!(translation_book.id) end
+    end
+
+    test "change_translation_book/1 returns a translation_book changeset" do
+      translation_book = translation_book_fixture()
+      assert %Ecto.Changeset{} = Books.change_translation_book(translation_book)
+    end
+  end
 end

@@ -2,7 +2,7 @@
 -- https://github.com/dillonkearns/elm-graphql
 
 
-module GraphQLBook.Object.Book exposing (..)
+module GraphQLBook.Object.TranslationBook exposing (..)
 
 import GraphQLBook.InputObject
 import GraphQLBook.Interface
@@ -19,44 +19,47 @@ import Graphql.SelectionSet exposing (SelectionSet)
 import Json.Decode as Decode
 
 
-author : SelectionSet String GraphQLBook.Object.Book
+author : SelectionSet String GraphQLBook.Object.TranslationBook
 author =
     Object.selectionForField "String" "author" [] Decode.string
 
 
-bookTranslations :
-    SelectionSet decodesTo GraphQLBook.Object.TranslationBook
-    -> SelectionSet (List decodesTo) GraphQLBook.Object.Book
-bookTranslations object_ =
-    Object.selectionForCompositeField "bookTranslations" [] object_ (identity >> Decode.list)
+book :
+    SelectionSet decodesTo GraphQLBook.Object.Book
+    -> SelectionSet decodesTo GraphQLBook.Object.TranslationBook
+book object_ =
+    Object.selectionForCompositeField "book" [] object_ identity
 
 
-category :
-    SelectionSet decodesTo GraphQLBook.Object.Category
-    -> SelectionSet decodesTo GraphQLBook.Object.Book
-category object_ =
-    Object.selectionForCompositeField "category" [] object_ identity
-
-
-id : SelectionSet GraphQLBook.ScalarCodecs.Id GraphQLBook.Object.Book
+id : SelectionSet GraphQLBook.ScalarCodecs.Id GraphQLBook.Object.TranslationBook
 id =
     Object.selectionForField "ScalarCodecs.Id" "id" [] (GraphQLBook.ScalarCodecs.codecs |> GraphQLBook.Scalar.unwrapCodecs |> .codecId |> .decoder)
 
 
 language :
     SelectionSet decodesTo GraphQLBook.Object.Language
-    -> SelectionSet decodesTo GraphQLBook.Object.Book
+    -> SelectionSet decodesTo GraphQLBook.Object.TranslationBook
 language object_ =
     Object.selectionForCompositeField "language" [] object_ identity
 
 
-pages :
-    SelectionSet decodesTo GraphQLBook.Object.Page
-    -> SelectionSet (List decodesTo) GraphQLBook.Object.Book
-pages object_ =
-    Object.selectionForCompositeField "pages" [] object_ (identity >> Decode.list)
+notes : SelectionSet String GraphQLBook.Object.TranslationBook
+notes =
+    Object.selectionForField "String" "notes" [] Decode.string
 
 
-title : SelectionSet String GraphQLBook.Object.Book
+title : SelectionSet String GraphQLBook.Object.TranslationBook
 title =
     Object.selectionForField "String" "title" [] Decode.string
+
+
+translations :
+    SelectionSet decodesTo GraphQLBook.Object.Translation
+    -> SelectionSet (List decodesTo) GraphQLBook.Object.TranslationBook
+translations object_ =
+    Object.selectionForCompositeField "translations" [] object_ (identity >> Decode.list)
+
+
+translator : SelectionSet String GraphQLBook.Object.TranslationBook
+translator =
+    Object.selectionForField "String" "translator" [] Decode.string

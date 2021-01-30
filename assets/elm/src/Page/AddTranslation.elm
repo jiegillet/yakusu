@@ -11,6 +11,7 @@ import Element.Input as Input
 import GraphQLBook.Mutation as Mutation
 import GraphQLBook.Object exposing (Book)
 import GraphQLBook.Object.Book as GBook
+import GraphQLBook.Object.TranslationBook as TBook
 import GraphQLBook.Query as Query
 import GraphQLBook.Scalar exposing (Id(..))
 import Graphql.Http exposing (Error)
@@ -330,11 +331,11 @@ saveBookMutation bookId { title, author, language, translator, notes } =
     Mutation.createBook modifyOptional
         { author = author
         , languageId = Maybe.withDefault "" (Maybe.map .id language)
-        , originalId = bookId
+        , bookId = bookId
         , title = title
         , translator = translator
         }
-        GBook.id
+        TBook.id
 
 
 saveBook : Cred -> Id -> Form -> Cmd Msg

@@ -58,3 +58,17 @@ languages :
     -> SelectionSet (List decodesTo) RootQuery
 languages object_ =
     Object.selectionForCompositeField "languages" [] object_ (identity >> Decode.list)
+
+
+type alias TranslationBookRequiredArguments =
+    { id : GraphQLBook.ScalarCodecs.Id }
+
+
+{-| Get a particular translation book
+-}
+translationBook :
+    TranslationBookRequiredArguments
+    -> SelectionSet decodesTo GraphQLBook.Object.TranslationBook
+    -> SelectionSet (Maybe decodesTo) RootQuery
+translationBook requiredArgs object_ =
+    Object.selectionForCompositeField "translationBook" [ Argument.required "id" requiredArgs.id (GraphQLBook.ScalarCodecs.codecs |> GraphQLBook.Scalar.unwrapEncoder .codecId) ] object_ (identity >> Decode.nullable)

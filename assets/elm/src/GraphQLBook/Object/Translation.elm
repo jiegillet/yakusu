@@ -19,11 +19,6 @@ import Graphql.SelectionSet exposing (SelectionSet)
 import Json.Decode as Decode
 
 
-bookId : SelectionSet GraphQLBook.ScalarCodecs.Id GraphQLBook.Object.Translation
-bookId =
-    Object.selectionForField "ScalarCodecs.Id" "bookId" [] (GraphQLBook.ScalarCodecs.codecs |> GraphQLBook.Scalar.unwrapCodecs |> .codecId |> .decoder)
-
-
 id : SelectionSet GraphQLBook.ScalarCodecs.Id GraphQLBook.Object.Translation
 id =
     Object.selectionForField "ScalarCodecs.Id" "id" [] (GraphQLBook.ScalarCodecs.codecs |> GraphQLBook.Scalar.unwrapCodecs |> .codecId |> .decoder)
@@ -42,3 +37,8 @@ path =
 text : SelectionSet String GraphQLBook.Object.Translation
 text =
     Object.selectionForField "String" "text" [] Decode.string
+
+
+translationBookId : SelectionSet GraphQLBook.ScalarCodecs.Id GraphQLBook.Object.Translation
+translationBookId =
+    Object.selectionForField "ScalarCodecs.Id" "translationBookId" [] (GraphQLBook.ScalarCodecs.codecs |> GraphQLBook.Scalar.unwrapCodecs |> .codecId |> .decoder)

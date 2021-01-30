@@ -8,10 +8,8 @@ import GraphQLBook.Object.Category as GCategory
 import GraphQLBook.Object.Language as GLanguage
 import GraphQLBook.Object.Page as GPage
 import GraphQLBook.Object.Translation as GTranslation
-import GraphQLBook.Query as Query
+import GraphQLBook.Object.TranslationBook as TBook
 import GraphQLBook.Scalar exposing (Id(..))
-import Graphql.Http exposing (Error)
-import Graphql.Operation exposing (RootQuery)
 import Graphql.SelectionSet as SelectionSet exposing (SelectionSet)
 
 
@@ -86,16 +84,16 @@ bookSelection =
         (SelectionSet.map toDict (GBook.pages pageSelection))
 
 
-bookTranslationSelection : SelectionSet BookTranslation GraphQLBook.Object.Book
+bookTranslationSelection : SelectionSet BookTranslation GraphQLBook.Object.TranslationBook
 bookTranslationSelection =
     SelectionSet.map7 BookTranslation
-        (SelectionSet.map idToString GBook.id)
-        GBook.title
-        GBook.author
-        (GBook.language languageSelection)
-        (SelectionSet.withDefault "" GBook.translator)
-        (SelectionSet.withDefault "" GBook.notes)
-        (SelectionSet.map toDict (GBook.translations translationSelection))
+        (SelectionSet.map idToString TBook.id)
+        TBook.title
+        TBook.author
+        (TBook.language languageSelection)
+        TBook.translator
+        TBook.notes
+        (SelectionSet.map toDict (TBook.translations translationSelection))
 
 
 pageSelection : SelectionSet Page GraphQLBook.Object.Page

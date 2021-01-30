@@ -1,4 +1,4 @@
-module Page.Books exposing (Model, Msg, init, update, view)
+module Page.Books exposing (Book, Model, Msg, bookSelection, bookTranslationSelection, init, update, view)
 
 import Api exposing (Cred)
 import Common exposing (Context, height, width)
@@ -9,6 +9,7 @@ import Element.Font as Font
 import Element.Input as Input
 import GraphQLBook.Object
 import GraphQLBook.Object.Book as GBook exposing (category, id, language)
+import GraphQLBook.Object.TranslationBook as TBook
 import GraphQLBook.Query as Query
 import GraphQLBook.Scalar exposing (Id)
 import Graphql.Http exposing (Error)
@@ -24,7 +25,7 @@ import Types exposing (Category, Language)
 
 
 type alias Book =
-    { id : Id
+    { id : String
     , title : String
     , author : String
     , language : Language
@@ -34,7 +35,7 @@ type alias Book =
 
 
 type alias BookTranslation =
-    { id : Id
+    { id : String
     , title : String
     , author : String
     , language : Language
@@ -348,7 +349,7 @@ viewBooks checkedCategories ( column, order ) books =
                         translations
                             |> List.map
                                 (\{ id, language } ->
-                                    Route.link (Route.Translation (Types.idToString id))
+                                    Route.link (Route.Translation id)
                                         [ Font.underline ]
                                         (El.text language.language)
                                 )
@@ -362,7 +363,7 @@ viewBooks checkedCategories ( column, order ) books =
                         neededLanguages book
                             |> List.map
                                 (El.text
-                                    >> Route.link (Route.AddTranslation (Types.idToString id))
+                                    >> Route.link (Route.AddTranslation id)
                                         [ Font.underline ]
                                 )
                             |> El.column []
@@ -385,7 +386,7 @@ viewBooks checkedCategories ( column, order ) books =
 bookSelection : SelectionSet Book GraphQLBook.Object.Book
 bookSelection =
     SelectionSet.map6 Book
-        GBook.id
+        (SelectionSet.map Types.idToString GBook.id)
         GBook.title
         GBook.author
         (GBook.language Types.languageSelection)
@@ -393,14 +394,14 @@ bookSelection =
         (GBook.bookTranslations bookTranslationSelection)
 
 
-bookTranslationSelection : SelectionSet BookTranslation GraphQLBook.Object.Book
+bookTranslationSelection : SelectionSet BookTranslation GraphQLBook.Object.TranslationBook
 bookTranslationSelection =
     SelectionSet.map5 BookTranslation
-        GBook.id
-        GBook.title
-        GBook.author
-        (GBook.language Types.languageSelection)
-        (SelectionSet.withDefault "" GBook.translator)
+        (SelectionSet.map Types.idToString TBook.id)
+        TBook.title
+        TBook.author
+        (TBook.language Types.languageSelection)
+        TBook.translator
 
 
 requestBooks : Cred -> Cmd Msg
