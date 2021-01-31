@@ -36,8 +36,18 @@ defmodule CdcBooksWeb.Schema do
   end
 
   mutation do
+    @desc "Create new book"
+    field :create_book, type: non_null(:book) do
+      arg(:id, :id)
+      arg(:title, non_null(:string))
+      arg(:author, non_null(:string))
+      arg(:language_id, non_null(:string))
+      arg(:category_id, non_null(:id))
+      resolve(&Resolvers.Books.create_book/3)
+    end
+
     @desc "Create new book translation"
-    field :create_book, type: non_null(:translation_book) do
+    field :create_translation_book, type: non_null(:translation_book) do
       arg(:id, :id)
       arg(:book_id, non_null(:id))
       arg(:title, non_null(:string))

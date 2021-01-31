@@ -19,13 +19,18 @@ import Element.Font as Font
 import Element.Input as Input exposing (OptionState(..))
 import File exposing (File)
 import File.Select as Select
+import GraphQLBook.Mutation as Mutation
+import GraphQLBook.Object.Book as GBook
 import GraphQLBook.Query as Query
+import GraphQLBook.Scalar exposing (Id(..))
 import Graphql.Http exposing (Error)
+import Graphql.Operation exposing (RootQuery)
+import Graphql.SelectionSet as SelectionSet exposing (SelectionSet)
 import Html.Attributes as Attributes
 import Html.Events
 import Http
 import Json.Decode as Decode exposing (Decoder)
-import Json.Encode as Encode exposing (Value)
+import Page.Books exposing (Book)
 import RemoteData exposing (RemoteData(..), WebData)
 import Route
 import Style
@@ -42,6 +47,8 @@ import Types exposing (Category, Language)
 type alias Model =
     { context : Context
     , cred : Cred
+    , bookId : Maybe String
+    , book : RemoteData (Error (Maybe Book)) (Maybe Book)
     , categories : RemoteData (Error (List Category)) (List Category)
     , languages : RemoteData (Error (List Language)) (List Language)
     , title : String
@@ -56,10 +63,18 @@ type alias Model =
     }
 
 
-init : Context -> Cred -> ( Model, Cmd Msg )
-init context cred =
+init : Context -> Cred -> Maybe String -> ( Model, Cmd Msg )
+init context cred bookId =
     ( { context = context
       , cred = cred
+      , bookId = bookId
+      , book =
+            case bookId of
+                Nothing ->
+                    NotAsked
+
+                Just _ ->
+                    Loading
       , hoverUploadBox = False
       , previews = []
       , categories = Loading
@@ -76,7 +91,15 @@ init context cred =
                 , Animation.transformOrigin (Animation.percent 50) (Animation.percent 50) (Animation.percent 0)
                 ]
       }
-    , Cmd.batch [ getCategories cred, getlanguages cred ]
+    , [ getCategories cred, getlanguages cred ]
+        ++ (case bookId of
+                Nothing ->
+                    []
+
+                Just id ->
+                    [ getBook cred id ]
+           )
+        |> Cmd.batch
     )
 
 
@@ -159,6 +182,7 @@ setAt index a list =
 type Msg
     = GotLanguages (RemoteData (Error (List Language)) (List Language))
     | GotCategories (RemoteData (Error (List Category)) (List Category))
+    | GotBook (RemoteData (Error (Maybe Book)) (Maybe Book))
     | InputTitle String
     | InputAuthor String
     | ClickedCategory Category Bool
@@ -176,7 +200,8 @@ type Msg
     | GotCompressedImage (WebData ( Int, Image ))
     | DeleteImage Int
     | ClickedSave
-    | BookSaved (WebData String)
+    | GotCreatedBook (RemoteData (Error String) String)
+    | BookSaved String (WebData ())
       -- Drag and Drop
     | DnDMsg DnDList.Msg
     | Animate Animation.Msg
@@ -227,8 +252,17 @@ update msg model =
             case ( model.category, maybeLanguage ) of
                 ( Just category, Just language ) ->
                     ( model
-                    , postBook model.cred model.title model.author language category model.previews
+                      -- , postBook model.cred model.title model.author language category model.previews
+                    , createBook model.cred model.title model.author language category
                     )
+
+                _ ->
+                    ( model, Cmd.none )
+
+        GotCreatedBook result ->
+            case result of
+                Success bookId ->
+                    ( model, postPages model.cred bookId model.previews )
 
                 _ ->
                     ( model, Cmd.none )
@@ -276,13 +310,16 @@ update msg model =
             in
             ( { model | previews = previews }, Cmd.none )
 
-        BookSaved result ->
+        BookSaved bookId result ->
             case result of
-                Success id ->
-                    ( model, Route.replaceUrl model.context.key (Route.BookDetail id True) )
+                Success () ->
+                    ( model, Route.replaceUrl model.context.key (Route.BookDetail bookId True) )
 
                 _ ->
                     ( model, Cmd.none )
+
+        GotBook result ->
+            ( { model | book = result }, Cmd.none )
 
         GotCategories result ->
             ( { model | categories = result }, Cmd.none )
@@ -744,35 +781,6 @@ viewAddOrDelete dnd crossAnimation =
 -- REST API
 
 
-encodeBook : String -> String -> Language -> Category -> Value
-encodeBook title author language category =
-    Encode.object
-        [ ( "title", Encode.string title )
-        , ( "author", Encode.string author )
-        , ( "language_id", Encode.string language.id )
-        , ( "category_id", Encode.string category.id )
-        ]
-
-
-decodeBookId : Decoder String
-decodeBookId =
-    Decode.at [ "data", "id" ] Decode.int |> Decode.map String.fromInt
-
-
-postBook : Cred -> String -> String -> Language -> Category -> List Image -> Cmd Msg
-postBook cred title author language category previews =
-    let
-        body =
-            Http.stringPart "book" (Encode.encode 0 (encodeBook title author language category))
-                :: List.map (.file >> Http.bytesPart "pages[]" "image/jpeg") previews
-                |> Http.multipartBody
-
-        expect =
-            Http.expectJson (RemoteData.fromResult >> BookSaved) decodeBookId
-    in
-    Api.post Endpoint.addBook cred body expect
-
-
 uploadImage : Cred -> Int -> File -> Cmd Msg
 uploadImage cred page file =
     let
@@ -806,6 +814,19 @@ fileImageDecoder =
         )
 
 
+postPages : Cred -> String -> List Image -> Cmd Msg
+postPages cred bookId previews =
+    let
+        body =
+            List.map (.file >> Http.bytesPart "pages[]" "image/jpeg") previews
+                |> Http.multipartBody
+
+        expect =
+            Http.expectWhatever (RemoteData.fromResult >> BookSaved bookId)
+    in
+    Api.post (Endpoint.createPages bookId) cred body expect
+
+
 
 -- GRAPHQL
 
@@ -818,3 +839,28 @@ getCategories cred =
 getlanguages : Cred -> Cmd Msg
 getlanguages cred =
     Api.queryRequest cred (Query.languages Types.languageSelection) GotLanguages
+
+
+bookQuery : String -> SelectionSet (Maybe Book) RootQuery
+bookQuery bookId =
+    Query.book (Query.BookRequiredArguments (Id bookId)) Page.Books.bookSelection
+
+
+getBook : Cred -> String -> Cmd Msg
+getBook cred bookId =
+    Api.queryRequest cred (bookQuery bookId) GotBook
+
+
+createBook : Cred -> String -> String -> Language -> Category -> Cmd Msg
+createBook cred title author language category =
+    let
+        selection =
+            Mutation.createBook identity
+                { author = author
+                , categoryId = Id category.id
+                , languageId = language.id
+                , title = title
+                }
+                (SelectionSet.map Types.idToString GBook.id)
+    in
+    Api.mutationRequest cred selection GotCreatedBook

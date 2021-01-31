@@ -135,12 +135,12 @@ view model =
 
 
 viewBook : Book -> Element msg
-viewBook { title, author, language, category } =
+viewBook { id, title, author, language, category } =
     El.column [ El.paddingEach { top = 30, left = 0, right = 0, bottom = 40 }, El.spacing 20 ]
         [ El.row [ Font.size 20, El.spacing 20, height 45 ]
             [ El.row [ width 470, El.height El.fill, Background.color Style.grey, El.padding 5, El.spacing 10 ]
                 [ iconPlaceholder, El.el [ El.centerY ] (El.text title) ]
-            , Route.link Route.Books
+            , Route.link (Route.EditBook id)
                 [ Font.color Style.black
                 , Border.color Style.nightBlue
                 , Border.width 2

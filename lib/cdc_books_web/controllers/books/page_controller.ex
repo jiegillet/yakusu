@@ -61,4 +61,24 @@ defmodule CdcBooksWeb.Books.PageController do
 
     send_resp(conn, :ok, response)
   end
+
+  def create_pages(conn, %{"book_id" => book_id, "pages" => pages}) do
+    pages
+    |> Enum.with_index(1)
+    |> Enum.map(fn {%Plug.Upload{path: path}, page_number} ->
+      {:ok, image} =
+        path
+        |> File.read()
+
+      {:ok, _page} =
+        Books.create_page(%{
+          page_number: page_number,
+          book_id: book_id,
+          image: image,
+          image_type: "image/jpg"
+        })
+    end)
+
+    send_resp(conn, :created, "")
+  end
 end

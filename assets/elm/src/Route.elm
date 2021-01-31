@@ -13,6 +13,7 @@ type Route
     | Translation String
     | Books
     | AddBook
+    | EditBook String
     | BookDetail String Bool
     | AddTranslation String
 
@@ -32,8 +33,9 @@ parser =
         [ Parser.map Books Parser.top
         , Parser.map Login (Parser.s "login")
         , Parser.map Translation (Parser.s "translation" </> Parser.string)
-        , Parser.map AddBook (Parser.s "add")
-        , Parser.map BookDetail (Parser.s "book" </> Parser.string <?> (Query.string "status" |> Query.map toBool))
+        , Parser.map EditBook (Parser.s "book" </> Parser.s "edit" </> Parser.string)
+        , Parser.map AddBook (Parser.s "book" </> Parser.s "add")
+        , Parser.map BookDetail (Parser.s "book" </> Parser.s "detail" </> Parser.string <?> (Query.string "status" |> Query.map toBool))
         , Parser.map AddTranslation (Parser.s "translate" </> Parser.string)
         ]
 
@@ -47,17 +49,20 @@ routeToPieces route =
         Login ->
             ( [ "login" ], [] )
 
-        Translation id ->
-            ( [ "translation", id ], [] )
-
         AddBook ->
-            ( [ "add" ], [] )
+            ( [ "book", "add" ], [] )
+
+        EditBook bookId ->
+            ( [ "book", "edit", bookId ], [] )
 
         BookDetail id True ->
-            ( [ "book", id ], [ Url.Builder.string "status" "new" ] )
+            ( [ "book", "detail", id ], [ Url.Builder.string "status" "new" ] )
 
         BookDetail id False ->
-            ( [ "book", id ], [] )
+            ( [ "book", "detail", id ], [] )
+
+        Translation id ->
+            ( [ "translation", id ], [] )
 
         AddTranslation id ->
             ( [ "translate", id ], [] )

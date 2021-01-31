@@ -234,7 +234,11 @@ changeRouteTo maybeRoute model =
                         |> updateWith Books GotBooksMsg
 
                 Just Route.AddBook ->
-                    AddBook.init context cred
+                    AddBook.init context cred Nothing
+                        |> updateWith AddBook GotAddBookMsg
+
+                Just (Route.EditBook bookId) ->
+                    AddBook.init context cred (Just bookId)
                         |> updateWith AddBook GotAddBookMsg
 
                 Just (Route.BookDetail bookId isNew) ->

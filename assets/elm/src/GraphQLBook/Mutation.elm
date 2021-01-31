@@ -20,37 +20,34 @@ import Json.Decode as Decode exposing (Decoder)
 
 
 type alias CreateBookOptionalArguments =
-    { id : OptionalArgument GraphQLBook.ScalarCodecs.Id
-    , notes : OptionalArgument String
-    }
+    { id : OptionalArgument GraphQLBook.ScalarCodecs.Id }
 
 
 type alias CreateBookRequiredArguments =
     { author : String
-    , bookId : GraphQLBook.ScalarCodecs.Id
+    , categoryId : GraphQLBook.ScalarCodecs.Id
     , languageId : String
     , title : String
-    , translator : String
     }
 
 
-{-| Create new book translation
+{-| Create new book
 -}
 createBook :
     (CreateBookOptionalArguments -> CreateBookOptionalArguments)
     -> CreateBookRequiredArguments
-    -> SelectionSet decodesTo GraphQLBook.Object.TranslationBook
+    -> SelectionSet decodesTo GraphQLBook.Object.Book
     -> SelectionSet decodesTo RootMutation
 createBook fillInOptionals requiredArgs object_ =
     let
         filledInOptionals =
-            fillInOptionals { id = Absent, notes = Absent }
+            fillInOptionals { id = Absent }
 
         optionalArgs =
-            [ Argument.optional "id" filledInOptionals.id (GraphQLBook.ScalarCodecs.codecs |> GraphQLBook.Scalar.unwrapEncoder .codecId), Argument.optional "notes" filledInOptionals.notes Encode.string ]
+            [ Argument.optional "id" filledInOptionals.id (GraphQLBook.ScalarCodecs.codecs |> GraphQLBook.Scalar.unwrapEncoder .codecId) ]
                 |> List.filterMap identity
     in
-    Object.selectionForCompositeField "createBook" (optionalArgs ++ [ Argument.required "author" requiredArgs.author Encode.string, Argument.required "bookId" requiredArgs.bookId (GraphQLBook.ScalarCodecs.codecs |> GraphQLBook.Scalar.unwrapEncoder .codecId), Argument.required "languageId" requiredArgs.languageId Encode.string, Argument.required "title" requiredArgs.title Encode.string, Argument.required "translator" requiredArgs.translator Encode.string ]) object_ identity
+    Object.selectionForCompositeField "createBook" (optionalArgs ++ [ Argument.required "author" requiredArgs.author Encode.string, Argument.required "categoryId" requiredArgs.categoryId (GraphQLBook.ScalarCodecs.codecs |> GraphQLBook.Scalar.unwrapEncoder .codecId), Argument.required "languageId" requiredArgs.languageId Encode.string, Argument.required "title" requiredArgs.title Encode.string ]) object_ identity
 
 
 type alias CreateTranslationRequiredArguments =
@@ -65,6 +62,40 @@ createTranslation :
     -> SelectionSet (Maybe decodesTo) RootMutation
 createTranslation requiredArgs object_ =
     Object.selectionForCompositeField "createTranslation" [ Argument.required "translation" requiredArgs.translation GraphQLBook.InputObject.encodeInputTranslation ] object_ (identity >> Decode.nullable)
+
+
+type alias CreateTranslationBookOptionalArguments =
+    { id : OptionalArgument GraphQLBook.ScalarCodecs.Id
+    , notes : OptionalArgument String
+    }
+
+
+type alias CreateTranslationBookRequiredArguments =
+    { author : String
+    , bookId : GraphQLBook.ScalarCodecs.Id
+    , languageId : String
+    , title : String
+    , translator : String
+    }
+
+
+{-| Create new book translation
+-}
+createTranslationBook :
+    (CreateTranslationBookOptionalArguments -> CreateTranslationBookOptionalArguments)
+    -> CreateTranslationBookRequiredArguments
+    -> SelectionSet decodesTo GraphQLBook.Object.TranslationBook
+    -> SelectionSet decodesTo RootMutation
+createTranslationBook fillInOptionals requiredArgs object_ =
+    let
+        filledInOptionals =
+            fillInOptionals { id = Absent, notes = Absent }
+
+        optionalArgs =
+            [ Argument.optional "id" filledInOptionals.id (GraphQLBook.ScalarCodecs.codecs |> GraphQLBook.Scalar.unwrapEncoder .codecId), Argument.optional "notes" filledInOptionals.notes Encode.string ]
+                |> List.filterMap identity
+    in
+    Object.selectionForCompositeField "createTranslationBook" (optionalArgs ++ [ Argument.required "author" requiredArgs.author Encode.string, Argument.required "bookId" requiredArgs.bookId (GraphQLBook.ScalarCodecs.codecs |> GraphQLBook.Scalar.unwrapEncoder .codecId), Argument.required "languageId" requiredArgs.languageId Encode.string, Argument.required "title" requiredArgs.title Encode.string, Argument.required "translator" requiredArgs.translator Encode.string ]) object_ identity
 
 
 type alias DeleteTranslationRequiredArguments =

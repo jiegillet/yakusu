@@ -46,36 +46,4 @@ defmodule CdcBooksWeb.Books.BookController do
       send_resp(conn, :no_content, "")
     end
   end
-
-  def new_book(conn, %{"book" => book_params, "pages" => pages}) do
-    with {:ok, params} <- Jason.decode(book_params),
-         {:ok, %Book{id: book_id} = book} <- Books.create_book(params),
-         {:ok, _pages} <- add_pages(pages, book_id) do
-      conn
-      |> put_status(:created)
-      |> render("show.json", book: Repo.preload(book, :language))
-    end
-  end
-
-  defp add_pages(images, book_id) do
-    pages =
-      images
-      |> Enum.with_index(1)
-      |> Enum.map(fn {%Plug.Upload{path: path}, page_number} ->
-        {:ok, image} =
-          path
-          |> CdcBooks.Mogrify.blur_image()
-          |> File.read()
-
-        {:ok, _page} =
-          Books.create_page(%{
-            page_number: page_number,
-            book_id: book_id,
-            image: image,
-            image_type: "image/jpg"
-          })
-      end)
-
-    {:ok, pages}
-  end
 end

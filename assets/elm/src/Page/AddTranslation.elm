@@ -328,7 +328,7 @@ saveBookMutation bookId { title, author, language, translator, notes } =
         modifyOptional options =
             { options | notes = Present notes }
     in
-    Mutation.createBook modifyOptional
+    Mutation.createTranslationBook modifyOptional
         { author = author
         , languageId = Maybe.withDefault "" (Maybe.map .id language)
         , bookId = bookId
