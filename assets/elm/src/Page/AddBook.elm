@@ -279,7 +279,7 @@ update msg model =
         BookSaved result ->
             case result of
                 Success id ->
-                    ( model, Route.replaceUrl model.context.key (Route.BookAdded id) )
+                    ( model, Route.replaceUrl model.context.key (Route.BookDetail id True) )
 
                 _ ->
                     ( model, Cmd.none )
@@ -756,7 +756,7 @@ encodeBook title author language category =
 
 decodeBookId : Decoder String
 decodeBookId =
-    Decode.at [ "data", "id" ] Decode.string
+    Decode.at [ "data", "id" ] Decode.int |> Decode.map String.fromInt
 
 
 postBook : Cred -> String -> String -> Language -> Category -> List Image -> Cmd Msg

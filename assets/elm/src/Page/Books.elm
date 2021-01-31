@@ -1,4 +1,4 @@
-module Page.Books exposing (Book, Model, Msg, bookSelection, bookTranslationSelection, init, update, view)
+module Page.Books exposing (Book, BookTranslation, Model, Msg, bookSelection, bookTranslationSelection, init, update, view)
 
 import Api exposing (Cred)
 import Common exposing (Context, height, width)
@@ -8,10 +8,9 @@ import Element.Events as Events
 import Element.Font as Font
 import Element.Input as Input
 import GraphQLBook.Object
-import GraphQLBook.Object.Book as GBook exposing (category, id, language)
+import GraphQLBook.Object.Book as GBook
 import GraphQLBook.Object.TranslationBook as TBook
 import GraphQLBook.Query as Query
-import GraphQLBook.Scalar exposing (Id)
 import Graphql.Http exposing (Error)
 import Graphql.SelectionSet as SelectionSet exposing (SelectionSet)
 import RemoteData exposing (RemoteData(..))
@@ -322,7 +321,7 @@ viewBooks checkedCategories ( column, order ) books =
               , width = El.shrink
               , view =
                     \_ { id } ->
-                        iconPlaceholder
+                        Route.link (Route.BookDetail id False) [] iconPlaceholder
                             |> El.el [ El.centerY ]
               }
             , { header = header "Title" Title

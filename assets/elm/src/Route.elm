@@ -4,7 +4,7 @@ import Browser.Navigation as Nav
 import Element as El exposing (Attribute, Element)
 import Url exposing (Url)
 import Url.Builder exposing (QueryParameter)
-import Url.Parser as Parser exposing ((</>), (<?>), Parser, int, oneOf, s, string)
+import Url.Parser as Parser exposing ((</>), (<?>), Parser)
 import Url.Parser.Query as Query
 
 
@@ -13,19 +13,28 @@ type Route
     | Translation String
     | Books
     | AddBook
-    | BookAdded String
+    | BookDetail String Bool
     | AddTranslation String
 
 
 parser : Parser (Route -> a) a
 parser =
-    oneOf
+    let
+        toBool maybeStatus =
+            case maybeStatus of
+                Just "new" ->
+                    True
+
+                _ ->
+                    False
+    in
+    Parser.oneOf
         [ Parser.map Books Parser.top
-        , Parser.map Login (s "login")
-        , Parser.map Translation (s "translation" </> string)
-        , Parser.map AddBook (s "add")
-        , Parser.map BookAdded (s "add" </> string)
-        , Parser.map AddTranslation (s "translate" </> string)
+        , Parser.map Login (Parser.s "login")
+        , Parser.map Translation (Parser.s "translation" </> Parser.string)
+        , Parser.map AddBook (Parser.s "add")
+        , Parser.map BookDetail (Parser.s "book" </> Parser.string <?> (Query.string "status" |> Query.map toBool))
+        , Parser.map AddTranslation (Parser.s "translate" </> Parser.string)
         ]
 
 
@@ -44,8 +53,11 @@ routeToPieces route =
         AddBook ->
             ( [ "add" ], [] )
 
-        BookAdded id ->
-            ( [ "add", id ], [] )
+        BookDetail id True ->
+            ( [ "book", id ], [ Url.Builder.string "status" "new" ] )
+
+        BookDetail id False ->
+            ( [ "book", id ], [] )
 
         AddTranslation id ->
             ( [ "translate", id ], [] )

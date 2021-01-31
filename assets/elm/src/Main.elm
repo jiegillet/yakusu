@@ -13,7 +13,7 @@ import Json.Encode exposing (Value)
 import Page.AddBook as AddBook
 import Page.AddTranslation as AddTranslation
 import Page.Blank as Blank
-import Page.BookAdded as BookAdded
+import Page.BookDetail as BookDetail
 import Page.Books as Books
 import Page.Login as Login
 import Page.NotFound as NotFound
@@ -40,7 +40,7 @@ type Model
     | Redirect Url Context
     | Books Books.Model
     | AddBook AddBook.Model
-    | BookAdded BookAdded.Model
+    | BookDetail BookDetail.Model
     | AddTranslation AddTranslation.Model
     | Login Login.Model
     | Translation Translation.Model
@@ -71,7 +71,7 @@ getContext model =
         AddBook { context } ->
             context
 
-        BookAdded { context } ->
+        BookDetail { context } ->
             context
 
         AddTranslation { context } ->
@@ -99,8 +99,8 @@ updateContext updtateContext model =
         AddBook subModel ->
             AddBook { subModel | context = updtateContext subModel.context }
 
-        BookAdded subModel ->
-            BookAdded { subModel | context = updtateContext subModel.context }
+        BookDetail subModel ->
+            BookDetail { subModel | context = updtateContext subModel.context }
 
         AddTranslation subModel ->
             AddTranslation { subModel | context = updtateContext subModel.context }
@@ -126,7 +126,7 @@ type Msg
     | GotLoginMsg Login.Msg
     | GotBooksMsg Books.Msg
     | GotAddBookMsg AddBook.Msg
-    | GotBookAddedMsg BookAdded.Msg
+    | GotBookDetailMsg BookDetail.Msg
     | GotAddTranslationMsg AddTranslation.Msg
     | GotTranslationMsg Translation.Msg
 
@@ -183,9 +183,9 @@ update msg model =
             AddBook.update subMsg subModel
                 |> updateWith AddBook GotAddBookMsg
 
-        ( GotBookAddedMsg subMsg, BookAdded subModel ) ->
-            BookAdded.update subMsg subModel
-                |> updateWith BookAdded GotBookAddedMsg
+        ( GotBookDetailMsg subMsg, BookDetail subModel ) ->
+            BookDetail.update subMsg subModel
+                |> updateWith BookDetail GotBookDetailMsg
 
         ( GotAddTranslationMsg subMsg, AddTranslation subModel ) ->
             AddTranslation.update subMsg subModel
@@ -237,9 +237,9 @@ changeRouteTo maybeRoute model =
                     AddBook.init context cred
                         |> updateWith AddBook GotAddBookMsg
 
-                Just (Route.BookAdded bookId) ->
-                    BookAdded.init context cred bookId
-                        |> updateWith BookAdded GotBookAddedMsg
+                Just (Route.BookDetail bookId isNew) ->
+                    BookDetail.init context cred bookId isNew
+                        |> updateWith BookDetail GotBookDetailMsg
 
                 Just (Route.AddTranslation bookId) ->
                     AddTranslation.init context cred bookId
@@ -320,8 +320,8 @@ view model =
         AddBook subModel ->
             viewPageWith GotAddBookMsg (AddBook.view subModel)
 
-        BookAdded subModel ->
-            viewPageWith GotBookAddedMsg (BookAdded.view subModel)
+        BookDetail subModel ->
+            viewPageWith GotBookDetailMsg (BookDetail.view subModel)
 
         AddTranslation subModel ->
             viewPageWith GotAddTranslationMsg (AddTranslation.view subModel)
