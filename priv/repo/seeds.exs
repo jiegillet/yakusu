@@ -13,9 +13,36 @@
 alias CdcBooks.Books
 
 CdcBooks.Repo.delete_all(Books.Category)
-categories = ["Transportation", "Food", "Sea", "Dinosaurs", "All about me", "Friendship"]
+
+categories = [
+  "My World",
+  "Spring",
+  "Insects",
+  "Pets",
+  "Lifecycle",
+  "Summer",
+  "Land",
+  "Space",
+  "Water",
+  "Sea Animals",
+  "Dinosaurs",
+  "Food and Nutrition",
+  "All About Me",
+  "Fall/Trees",
+  "Transportation",
+  "My Family",
+  "On the Farm",
+  "My Community",
+  "Winter",
+  "Friendship",
+  "Health and Safety",
+  "Weather",
+  "Clothes",
+  "Animals"
+]
 
 categories
+|> Enum.sort()
 |> Enum.each(&Books.create_category(%{name: &1}))
 
 # Adding languages
