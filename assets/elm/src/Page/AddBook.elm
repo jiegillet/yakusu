@@ -25,6 +25,7 @@ import GraphQLBook.Query as Query
 import GraphQLBook.Scalar exposing (Id(..))
 import Graphql.Http exposing (Error)
 import Graphql.Operation exposing (RootQuery)
+import Graphql.OptionalArgument as OptionalArgument
 import Graphql.SelectionSet as SelectionSet exposing (SelectionSet)
 import Html.Attributes as Attributes
 import Html.Events
@@ -48,6 +49,7 @@ type alias Model =
     { context : Context
     , cred : Cred
     , bookId : Maybe String
+    , editParams : { book : RemoteData (Error (Maybe Book)) (Maybe Book), cmd : List (Cmd Msg), button : String, isNew : Bool }
     , book : RemoteData (Error (Maybe Book)) (Maybe Book)
     , categories : RemoteData (Error (List Category)) (List Category)
     , languages : RemoteData (Error (List Language)) (List Language)
@@ -58,6 +60,7 @@ type alias Model =
     , languageDropdown : LanguageDropdown
     , hoverUploadBox : Bool
     , previews : List Image
+    , oldImages : List Image
     , dnd : DnDList.Model
     , crossAnimation : Animation.State
     }
@@ -65,18 +68,31 @@ type alias Model =
 
 init : Context -> Cred -> Maybe String -> ( Model, Cmd Msg )
 init context cred bookId =
+    let
+        editParams =
+            case bookId of
+                Nothing ->
+                    { book = NotAsked
+                    , cmd = []
+                    , button = "Add Book"
+                    , isNew = True
+                    }
+
+                Just id ->
+                    { book = Loading
+                    , cmd = [ getBook cred id, getPages cred id ]
+                    , button = "Save Edits"
+                    , isNew = False
+                    }
+    in
     ( { context = context
       , cred = cred
       , bookId = bookId
-      , book =
-            case bookId of
-                Nothing ->
-                    NotAsked
-
-                Just _ ->
-                    Loading
+      , editParams = editParams
+      , book = editParams.book
       , hoverUploadBox = False
       , previews = []
+      , oldImages = []
       , categories = Loading
       , languages = Loading
       , languageDropdown = Closed
@@ -91,15 +107,7 @@ init context cred bookId =
                 , Animation.transformOrigin (Animation.percent 50) (Animation.percent 50) (Animation.percent 0)
                 ]
       }
-    , [ getCategories cred, getlanguages cred ]
-        ++ (case bookId of
-                Nothing ->
-                    []
-
-                Just id ->
-                    [ getBook cred id ]
-           )
-        |> Cmd.batch
+    , Cmd.batch (getCategories cred :: getlanguages cred :: editParams.cmd)
     )
 
 
@@ -128,14 +136,15 @@ type SelectLanguage
 
 
 type alias Image =
-    { file : Bytes
+    { id : Maybe Int
+    , file : Bytes
     , preview : String
     }
 
 
 emptyImage : Image
 emptyImage =
-    Image (Bytes.Encode.sequence [] |> Bytes.Encode.encode) ""
+    Image Nothing (Bytes.Encode.sequence [] |> Bytes.Encode.encode) ""
 
 
 config : DnDList.Config Image
@@ -182,7 +191,7 @@ setAt index a list =
 type Msg
     = GotLanguages (RemoteData (Error (List Language)) (List Language))
     | GotCategories (RemoteData (Error (List Category)) (List Category))
-    | GotBook (RemoteData (Error (Maybe Book)) (Maybe Book))
+    | GotExistingBook (RemoteData (Error (Maybe Book)) (Maybe Book))
     | InputTitle String
     | InputAuthor String
     | ClickedCategory Category Bool
@@ -193,29 +202,72 @@ type Msg
     | ClickedwhileOpenDropDown
     | DropdownInfoChanged DropDownInfo
       -- File Upload
-    | ClickedUploadFiles
+    | GotExistingPages (WebData (List Image))
     | DragEnterUploadBox
     | DragLeaveUploadBox
+    | ClickedUploadFiles
     | GotUploadedFiles File (List File)
     | GotCompressedImage (WebData ( Int, Image ))
-    | DeleteImage Int
-    | ClickedSave
-    | GotCreatedBook (RemoteData (Error String) String)
-    | BookSaved String (WebData ())
-      -- Drag and Drop
     | DnDMsg DnDList.Msg
     | Animate Animation.Msg
+    | DeleteImage Int
+      -- Saving
+    | ClickedSave
+    | BookCreated (RemoteData (Error String) String)
+    | PagesSaved String (WebData ())
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
+        GotLanguages result ->
+            ( { model | languages = result }, Cmd.none )
+
+        GotCategories result ->
+            ( { model | categories = result }, Cmd.none )
+
+        GotExistingBook result ->
+            case result of
+                Success (Just { title, author, language, category }) ->
+                    ( { model
+                        | title = title
+                        , author = author
+                        , category = Just category
+                        , language =
+                            if language.id == "jp" then
+                                Japanese
+
+                            else if language.id == "en" then
+                                English
+
+                            else
+                                Other
+                        , languageDropdown =
+                            if language.id == "jp" then
+                                Closed
+
+                            else if language.id == "en" then
+                                Closed
+
+                            else
+                                Set language
+                      }
+                    , Cmd.none
+                    )
+
+                _ ->
+                    ( { model | book = result }, Cmd.none )
+
         InputTitle title ->
             ( { model | title = title }, Cmd.none )
 
         InputAuthor author ->
             ( { model | author = author }, Cmd.none )
 
+        ClickedCategory category _ ->
+            ( { model | category = Just category }, Cmd.none )
+
+        -- Language and Dropdown
         InputLanguage language ->
             case language of
                 Other ->
@@ -232,105 +284,6 @@ update msg model =
         SelectLanguage language ->
             ( { model | language = language }, Cmd.none )
 
-        ClickedSave ->
-            let
-                maybeLanguage =
-                    case ( model.language, model.languageDropdown ) of
-                        ( Other, Set lan ) ->
-                            Just lan
-
-                        ( English, _ ) ->
-                            Just (Language "en" "English")
-
-                        ( Japanese, _ ) ->
-                            Just (Language "jp" "Japanese")
-
-                        _ ->
-                            Nothing
-            in
-            -- TODO Full check: non-empty title author pages
-            case ( model.category, maybeLanguage ) of
-                ( Just category, Just language ) ->
-                    ( model
-                      -- , postBook model.cred model.title model.author language category model.previews
-                    , createBook model.cred model.title model.author language category
-                    )
-
-                _ ->
-                    ( model, Cmd.none )
-
-        GotCreatedBook result ->
-            case result of
-                Success bookId ->
-                    ( model, postPages model.cred bookId model.previews )
-
-                _ ->
-                    ( model, Cmd.none )
-
-        ClickedUploadFiles ->
-            ( model, Select.files [ "image/*" ] GotUploadedFiles )
-
-        DragEnterUploadBox ->
-            ( { model | hoverUploadBox = True }, Cmd.none )
-
-        DragLeaveUploadBox ->
-            ( { model | hoverUploadBox = False }, Cmd.none )
-
-        GotUploadedFiles file files ->
-            let
-                filteredFiles =
-                    List.filter (File.mime >> String.startsWith "image/") (file :: files)
-
-                offset =
-                    List.length model.previews
-            in
-            ( { model
-                | hoverUploadBox = False
-                , previews =
-                    model.previews
-                        ++ List.map (always emptyImage) filteredFiles
-              }
-            , filteredFiles
-                |> List.indexedMap (\index -> uploadImage model.cred (index + offset))
-                |> Cmd.batch
-            )
-
-        GotCompressedImage result ->
-            case result of
-                Success ( index, preview ) ->
-                    ( { model | previews = setAt index preview model.previews }, Cmd.none )
-
-                _ ->
-                    ( model, Cmd.none )
-
-        DeleteImage index ->
-            let
-                previews =
-                    List.take index model.previews ++ List.drop (index + 1) model.previews
-            in
-            ( { model | previews = previews }, Cmd.none )
-
-        BookSaved bookId result ->
-            case result of
-                Success () ->
-                    ( model, Route.replaceUrl model.context.key (Route.BookDetail bookId True) )
-
-                _ ->
-                    ( model, Cmd.none )
-
-        GotBook result ->
-            ( { model | book = result }, Cmd.none )
-
-        GotCategories result ->
-            ( { model | categories = result }, Cmd.none )
-
-        ClickedCategory category _ ->
-            ( { model | category = Just category }, Cmd.none )
-
-        GotLanguages result ->
-            ( { model | languages = result }, Cmd.none )
-
-        -- DropDown
         EnteredSearchText search ->
             case model.languageDropdown of
                 Closed ->
@@ -339,11 +292,7 @@ update msg model =
                 Set lan ->
                     ( { model
                         | languageDropdown =
-                            Open
-                                { emptyDropdownInfo
-                                    | text = String.right 1 search
-                                    , selectedLanguage = Just lan
-                                }
+                            Open { emptyDropdownInfo | text = String.right 1 search, selectedLanguage = Just lan }
                       }
                     , Cmd.none
                     )
@@ -372,6 +321,51 @@ update msg model =
                 other ->
                     ( { model | languageDropdown = other }, Cmd.none )
 
+        -- File Upload
+        GotExistingPages result ->
+            case result of
+                Success images ->
+                    ( { model | previews = images, oldImages = images }, Cmd.none )
+
+                _ ->
+                    ( model, Cmd.none )
+
+        DragEnterUploadBox ->
+            ( { model | hoverUploadBox = True }, Cmd.none )
+
+        DragLeaveUploadBox ->
+            ( { model | hoverUploadBox = False }, Cmd.none )
+
+        ClickedUploadFiles ->
+            ( model, Select.files [ "image/*" ] GotUploadedFiles )
+
+        GotUploadedFiles file files ->
+            let
+                filteredFiles =
+                    List.filter (File.mime >> String.startsWith "image/") (file :: files)
+
+                offset =
+                    List.length model.previews
+            in
+            ( { model
+                | hoverUploadBox = False
+                , previews =
+                    model.previews
+                        ++ List.map (always emptyImage) filteredFiles
+              }
+            , filteredFiles
+                |> List.indexedMap (\index -> uploadImage model.cred (index + offset))
+                |> Cmd.batch
+            )
+
+        GotCompressedImage result ->
+            case result of
+                Success ( index, preview ) ->
+                    ( { model | previews = setAt index preview model.previews }, Cmd.none )
+
+                _ ->
+                    ( model, Cmd.none )
+
         DnDMsg dndMsg ->
             let
                 ( dnd, previews ) =
@@ -395,6 +389,56 @@ update msg model =
 
         Animate animMsg ->
             ( { model | crossAnimation = Animation.update animMsg model.crossAnimation }, Cmd.none )
+
+        DeleteImage index ->
+            let
+                previews =
+                    List.take index model.previews ++ List.drop (index + 1) model.previews
+            in
+            ( { model | previews = previews }, Cmd.none )
+
+        -- Saving
+        ClickedSave ->
+            let
+                maybeLanguage =
+                    case ( model.language, model.languageDropdown ) of
+                        ( Other, Set lan ) ->
+                            Just lan
+
+                        ( English, _ ) ->
+                            Just (Language "en" "English")
+
+                        ( Japanese, _ ) ->
+                            Just (Language "jp" "Japanese")
+
+                        _ ->
+                            Nothing
+            in
+            -- TODO Full check: non-empty title author pages
+            case ( model.category, maybeLanguage ) of
+                ( Just category, Just language ) ->
+                    ( model
+                    , createBook model.cred model.bookId model.title model.author language category
+                    )
+
+                _ ->
+                    ( model, Cmd.none )
+
+        BookCreated result ->
+            case result of
+                Success bookId ->
+                    ( model, postPages model.cred bookId model.previews model.oldImages )
+
+                _ ->
+                    ( model, Cmd.none )
+
+        PagesSaved bookId result ->
+            case result of
+                Success () ->
+                    ( model, Route.replaceUrl model.context.key (Route.BookDetail bookId model.editParams.isNew) )
+
+                _ ->
+                    ( model, Cmd.none )
 
 
 
@@ -444,10 +488,10 @@ view model =
         explanation =
             El.row [ Background.color Style.grey, El.width El.fill, height 45, El.spacing 5, Font.size 20 ]
                 [ iconPlaceholder
-                , El.text "To add a new book, please fill the following information and upload photos of the pages"
+                , El.text "Please fill the following information and upload photos of the pages"
                 ]
     in
-    { title = "Add an Original Book"
+    { title = "Original Book"
     , body =
         case ( model.categories, model.languages ) of
             ( Success categories, Success languages ) ->
@@ -463,12 +507,12 @@ view model =
                     |> El.el [ El.paddingXY 100 30 ]
 
             _ ->
-                El.text "There was a problem retrieving data."
+                El.none
     }
 
 
 viewForm : Model -> List Category -> List Language -> Element Msg
-viewForm { title, author, language, category, languageDropdown, dnd, previews, crossAnimation } categories languages =
+viewForm { title, author, language, category, languageDropdown, dnd, previews, crossAnimation, editParams } categories languages =
     El.column [ El.spacing 20, El.width El.fill, Font.size 18 ]
         [ viewLanguageChoice languageDropdown language languages
             |> El.el [ El.paddingEach { left = 40, right = 0, top = 0, bottom = 0 } ]
@@ -484,7 +528,7 @@ viewForm { title, author, language, category, languageDropdown, dnd, previews, c
             ]
             { onPress = Just ClickedSave
             , label =
-                El.row [ El.paddingXY 10 5, height 40, width 140 ] [ El.text "Add Book", iconPlaceholder ]
+                El.row [ El.paddingXY 10 5, height 40, width 140 ] [ El.text editParams.button, iconPlaceholder ]
             }
         ]
 
@@ -629,7 +673,7 @@ viewCategories category categories =
     in
     El.column [ El.spacing 20 ]
         [ El.row [ Background.color Style.grey, width 250, height 45, Font.size 20 ]
-            [ iconPlaceholder, El.text "Select Topic" ]
+            [ iconPlaceholder, El.text "Select Theme" ]
         , categories
             |> List.map viewCategory
             |> El.wrappedRow [ El.paddingXY 40 0, El.spacing 10 ]
@@ -809,22 +853,59 @@ fileImageDecoder =
                 (\length ->
                     Bytes.Decode.bytes length
                         |> Bytes.Decode.andThen
-                            (\file -> Bytes.Decode.succeed (Image file (toUrl file)))
+                            (\file -> Bytes.Decode.succeed (Image Nothing file (toUrl file)))
                 )
         )
 
 
-postPages : Cred -> String -> List Image -> Cmd Msg
-postPages cred bookId previews =
+getPages : Cred -> String -> Cmd Msg
+getPages cred bookId =
     let
+        pageDecoder =
+            Decode.map2 (\id preview -> { emptyImage | id = Just id, preview = preview })
+                (Decode.field "id" Decode.int)
+                (Decode.field "image" Decode.string)
+                |> Decode.list
+                |> Decode.field "data"
+    in
+    Api.get (Endpoint.allPages bookId) cred GotExistingPages pageDecoder
+
+
+postPages : Cred -> String -> List Image -> List Image -> Cmd Msg
+postPages cred bookId images oldImages =
+    let
+        newPages =
+            List.indexedMap Tuple.pair images
+                |> List.filter (\( _, { id } ) -> id == Nothing)
+
+        deletePages =
+            oldImages
+                |> List.filterMap
+                    (\image ->
+                        if List.member image images then
+                            Nothing
+
+                        else
+                            image.id
+                    )
+
+        reorderPages =
+            List.indexedMap Tuple.pair images
+                |> List.filterMap (\( index, image ) -> Maybe.map (\id -> ( String.fromInt index, String.fromInt id )) image.id)
+
         body =
-            List.map (.file >> Http.bytesPart "pages[]" "image/jpeg") previews
+            (List.map (Tuple.second >> .file >> Http.bytesPart "new_pages[]" "image/jpeg") newPages
+                ++ List.map (Tuple.first >> String.fromInt >> Http.stringPart "new_pages_number[]") newPages
+                ++ List.map (String.fromInt >> Http.stringPart "delete_pages[]") deletePages
+                ++ List.map (Tuple.second >> Http.stringPart "reorder_pages[]") reorderPages
+                ++ List.map (Tuple.first >> Http.stringPart "reorder_pages_number[]") reorderPages
+            )
                 |> Http.multipartBody
 
         expect =
-            Http.expectWhatever (RemoteData.fromResult >> BookSaved bookId)
+            Http.expectWhatever (RemoteData.fromResult >> PagesSaved bookId)
     in
-    Api.post (Endpoint.createPages bookId) cred body expect
+    Api.post (Endpoint.allPages bookId) cred body expect
 
 
 
@@ -848,14 +929,14 @@ bookQuery bookId =
 
 getBook : Cred -> String -> Cmd Msg
 getBook cred bookId =
-    Api.queryRequest cred (bookQuery bookId) GotBook
+    Api.queryRequest cred (bookQuery bookId) GotExistingBook
 
 
-createBook : Cred -> String -> String -> Language -> Category -> Cmd Msg
-createBook cred title author language category =
+createBook : Cred -> Maybe String -> String -> String -> Language -> Category -> Cmd Msg
+createBook cred bookId title author language category =
     let
         selection =
-            Mutation.createBook identity
+            Mutation.createBook (always { id = OptionalArgument.fromMaybe (Maybe.map Id bookId) })
                 { author = author
                 , categoryId = Id category.id
                 , languageId = language.id
@@ -863,4 +944,4 @@ createBook cred title author language category =
                 }
                 (SelectionSet.map Types.idToString GBook.id)
     in
-    Api.mutationRequest cred selection GotCreatedBook
+    Api.mutationRequest cred selection BookCreated

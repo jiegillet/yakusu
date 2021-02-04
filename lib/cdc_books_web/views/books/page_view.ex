@@ -11,8 +11,11 @@ defmodule CdcBooksWeb.Books.PageView do
   end
 
   def render("page.json", %{page: page}) do
-    %{id: page.id,
-      image: page.image,
-      image_type: page.image_type}
+    %{
+      id: page.id,
+      image: "data:" <> page.image_type <> ";base64," <> Elixir.Base.encode64(page.image),
+      page_number: page.page_number,
+      image_type: page.image_type
+    }
   end
 end

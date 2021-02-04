@@ -1,6 +1,6 @@
 module Api.Endpoint exposing
     ( Endpoint
-    , createPages
+    , allPages
     , githubLogIn
     , githubUrl
     , graphql
@@ -91,8 +91,8 @@ pages =
     url [ "api", "rest", "pages" ] []
 
 
-createPages : String -> Endpoint
-createPages bookId =
+allPages : String -> Endpoint
+allPages bookId =
     url [ "api", "rest", "pages", "all", bookId ] []
 
 

@@ -11,6 +11,15 @@ defmodule CdcBooksWeb.Books.PageController do
     render(conn, "index.json", pages: pages)
   end
 
+  def get_book_pages(conn, %{"book_id" => book_id}) do
+    pages =
+      Books.get_book!(book_id)
+      |> Books.list_pages()
+      |> Enum.sort_by(& &1.page_number)
+
+    render(conn, "index.json", pages: pages)
+  end
+
   def create(conn, %{"page" => page_params}) do
     with {:ok, %Page{} = page} <- Books.create_page(page_params) do
       conn
@@ -62,13 +71,23 @@ defmodule CdcBooksWeb.Books.PageController do
     send_resp(conn, :ok, response)
   end
 
-  def create_pages(conn, %{"book_id" => book_id, "pages" => pages}) do
-    pages
-    |> Enum.with_index(1)
-    |> Enum.map(fn {%Plug.Upload{path: path}, page_number} ->
-      {:ok, image} =
-        path
-        |> File.read()
+  @default_attrs %{"new_pages" => [], "new_pages_number" => [], "delete_pages" => []}
+
+  def create_pages(conn, attrs) do
+    # name all arguments, some are optionals
+    %{
+      "book_id" => book_id,
+      "new_pages" => new_pages,
+      "new_pages_number" => new_pages_number,
+      "delete_pages" => delete_pages,
+      "reorder_pages" => reorder_pages,
+      "reorder_pages_number" => reorder_pages_number
+    } = Map.merge(@default_attrs, attrs)
+
+    # Add new pages
+    Enum.zip(new_pages, new_pages_number)
+    |> Enum.each(fn {%Plug.Upload{path: path}, page_number} ->
+      {:ok, image} = File.read(path)
 
       {:ok, _page} =
         Books.create_page(%{
@@ -77,6 +96,24 @@ defmodule CdcBooksWeb.Books.PageController do
           image: image,
           image_type: "image/jpg"
         })
+    end)
+
+    # Delete old pages
+    delete_pages
+    |> Enum.each(fn page_id ->
+      page_id
+      |> String.to_integer()
+      |> Books.get_page!()
+      |> Books.delete_page()
+    end)
+
+    # Reorder existing pages
+    Enum.zip(reorder_pages, reorder_pages_number)
+    |> Enum.each(fn {page_id, page_number} ->
+      page_id
+      |> String.to_integer()
+      |> Books.get_page!()
+      |> Books.update_page(%{page_number: String.to_integer(page_number)})
     end)
 
     send_resp(conn, :created, "")
