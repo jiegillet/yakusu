@@ -135,7 +135,7 @@ view model =
 
 
 viewBook : Book -> Element msg
-viewBook { id, title, author, language, category } =
+viewBook { id, title, author, language, category, numPages } =
     El.column [ El.paddingEach { top = 30, left = 0, right = 0, bottom = 40 }, El.spacing 20 ]
         [ El.row [ Font.size 20, El.spacing 20, height 45 ]
             [ El.row [ width 470, El.height El.fill, Background.color Style.grey, El.padding 5, El.spacing 10 ]
@@ -152,7 +152,8 @@ viewBook { id, title, author, language, category } =
             ]
         , viewField "Original language" (El.text language.language)
         , viewField "Author" (El.text author)
-        , viewField "Topic" (El.text category.name)
+        , viewField "Theme" (El.text category.name)
+        , viewField "Pages" (El.text (String.fromInt numPages))
         ]
 
 

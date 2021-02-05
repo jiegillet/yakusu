@@ -10,6 +10,9 @@ defmodule CdcBooksWeb.Resolvers.Books do
   def list_pages(%Book{} = book, _args, _resolution) do
     {:ok, Books.list_pages(book)}
   end
+  def num_pages(%Book{} = book, _args, _resolution) do
+    {:ok, Books.list_pages(book) |> length}
+  end
 
   def find_book(_parent, %{id: id}, _resolution) do
     {:ok, Books.get_book(id)}

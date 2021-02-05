@@ -50,6 +50,11 @@ language object_ =
     Object.selectionForCompositeField "language" [] object_ identity
 
 
+numPages : SelectionSet Int GraphQLBook.Object.Book
+numPages =
+    Object.selectionForField "Int" "numPages" [] Decode.int
+
+
 pages :
     SelectionSet decodesTo GraphQLBook.Object.Page
     -> SelectionSet (List decodesTo) GraphQLBook.Object.Book

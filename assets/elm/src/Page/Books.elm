@@ -29,6 +29,7 @@ type alias Book =
     , author : String
     , language : Language
     , category : Category
+    , numPages : Int
     , translations : List BookTranslation
     }
 
@@ -384,12 +385,13 @@ viewBooks checkedCategories ( column, order ) books =
 
 bookSelection : SelectionSet Book GraphQLBook.Object.Book
 bookSelection =
-    SelectionSet.map6 Book
+    SelectionSet.map7 Book
         (SelectionSet.map Types.idToString GBook.id)
         GBook.title
         GBook.author
         (GBook.language Types.languageSelection)
         (GBook.category Types.categorySelection)
+        GBook.numPages
         (GBook.bookTranslations bookTranslationSelection)
 
 

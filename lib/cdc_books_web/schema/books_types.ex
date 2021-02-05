@@ -20,6 +20,10 @@ defmodule CdcBooksWeb.Schema.BooksTypes do
       resolve(&Resolvers.Books.list_pages/3)
     end
 
+    field :num_pages, non_null(:integer) do
+      resolve(&Resolvers.Books.num_pages/3)
+    end
+
     field :book_translations, non_null(list_of(non_null(:translation_book))) do
       resolve(&Resolvers.Books.list_book_translations/3)
     end
