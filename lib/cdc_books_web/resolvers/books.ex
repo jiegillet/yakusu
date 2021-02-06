@@ -1,6 +1,6 @@
 defmodule CdcBooksWeb.Resolvers.Books do
   alias CdcBooks.Books
-  alias CdcBooks.Books.{TranslationBook, Book}
+  alias CdcBooks.Books.{TranslationBook, Book, Page}
   alias CdcBooks.Languages
 
   def list_books(_parent, _args, _resolution) do
@@ -10,6 +10,7 @@ defmodule CdcBooksWeb.Resolvers.Books do
   def list_pages(%Book{} = book, _args, _resolution) do
     {:ok, Books.list_pages(book)}
   end
+
   def num_pages(%Book{} = book, _args, _resolution) do
     {:ok, Books.list_pages(book) |> length}
   end
@@ -86,5 +87,9 @@ defmodule CdcBooksWeb.Resolvers.Books do
   def delete_translation(_parent, %{id: id}, _resolution) do
     Books.get_translation!(id)
     |> Books.delete_translation()
+  end
+
+  def image_to_url(%Page{image: image, image_type: image_type}, _args, _resolution) do
+    {:ok, "data:" <> image_type <> ";base64," <> Elixir.Base.encode64(image)}
   end
 end

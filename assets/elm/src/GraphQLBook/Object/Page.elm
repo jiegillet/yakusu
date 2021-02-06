@@ -19,9 +19,19 @@ import Graphql.SelectionSet exposing (SelectionSet)
 import Json.Decode as Decode
 
 
+height : SelectionSet Int GraphQLBook.Object.Page
+height =
+    Object.selectionForField "Int" "height" [] Decode.int
+
+
 id : SelectionSet GraphQLBook.ScalarCodecs.Id GraphQLBook.Object.Page
 id =
     Object.selectionForField "ScalarCodecs.Id" "id" [] (GraphQLBook.ScalarCodecs.codecs |> GraphQLBook.Scalar.unwrapCodecs |> .codecId |> .decoder)
+
+
+image : SelectionSet String GraphQLBook.Object.Page
+image =
+    Object.selectionForField "String" "image" [] Decode.string
 
 
 imageType : SelectionSet String GraphQLBook.Object.Page
@@ -32,3 +42,8 @@ imageType =
 pageNumber : SelectionSet Int GraphQLBook.Object.Page
 pageNumber =
     Object.selectionForField "Int" "pageNumber" [] Decode.int
+
+
+width : SelectionSet Int GraphQLBook.Object.Page
+width =
+    Object.selectionForField "Int" "width" [] Decode.int

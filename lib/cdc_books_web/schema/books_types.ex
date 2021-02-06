@@ -54,6 +54,13 @@ defmodule CdcBooksWeb.Schema.BooksTypes do
   @desc "A page withing a book"
   object :page do
     field :id, non_null(:id)
+
+    field :image, non_null(:string) do
+      resolve(&Resolvers.Books.image_to_url/3)
+    end
+
+    field :height, non_null(:integer)
+    field :width, non_null(:integer)
     field :image_type, non_null(:string)
     field :page_number, non_null(:integer)
   end

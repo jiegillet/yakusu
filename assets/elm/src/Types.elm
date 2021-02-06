@@ -55,6 +55,9 @@ type alias BookTranslation =
 
 type alias Page =
     { id : String
+    , image : String
+    , width : Int
+    , height : Int
     , imageType : String
     , pageNumber : Int
     }
@@ -98,8 +101,11 @@ bookTranslationSelection =
 
 pageSelection : SelectionSet Page GraphQLBook.Object.Page
 pageSelection =
-    SelectionSet.map3 Page
+    SelectionSet.map6 Page
         (SelectionSet.map idToString GPage.id)
+        GPage.image
+        GPage.width
+        GPage.height
         GPage.imageType
         GPage.pageNumber
 

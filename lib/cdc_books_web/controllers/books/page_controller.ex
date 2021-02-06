@@ -71,7 +71,13 @@ defmodule CdcBooksWeb.Books.PageController do
     send_resp(conn, :ok, response)
   end
 
-  @default_attrs %{"new_pages" => [], "new_pages_number" => [], "delete_pages" => []}
+  @default_attrs %{
+    "new_pages" => [],
+    "new_pages_number" => [],
+    "delete_pages" => [],
+    "reorder_pages" => [],
+    "reorder_pages_number" => []
+  }
 
   def create_pages(conn, attrs) do
     # name all arguments, some are optionals
@@ -89,11 +95,18 @@ defmodule CdcBooksWeb.Books.PageController do
     |> Enum.each(fn {%Plug.Upload{path: path}, page_number} ->
       {:ok, image} = File.read(path)
 
+      %{width: width, height: height} =
+        path
+        |> Mogrify.open()
+        |> Mogrify.verbose()
+
       {:ok, _page} =
         Books.create_page(%{
           page_number: page_number,
           book_id: book_id,
           image: image,
+          height: height,
+          width: width,
           image_type: "image/jpg"
         })
     end)

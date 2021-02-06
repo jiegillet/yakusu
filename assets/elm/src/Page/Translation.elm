@@ -63,6 +63,7 @@ init context cred bookId =
 
 type alias Page =
     { id : String
+    , image : String
     , imageType : String
     , pageNumber : Int
     , translations : List Translation
@@ -684,10 +685,10 @@ pagesSelection =
 
         toPage zipPages translations =
             let
-                getTranslations ({ pageNumber, imageType } as page) =
+                getTranslations ({ pageNumber, imageType, image } as page) =
                     translations
                         |> List.filter (\{ pageId } -> pageId == page.id)
-                        |> Page page.id imageType pageNumber
+                        |> Page page.id image imageType pageNumber
             in
             ZipList.map getTranslations zipPages
     in
