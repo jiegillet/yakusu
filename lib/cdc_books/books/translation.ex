@@ -4,8 +4,8 @@ defmodule CdcBooks.Books.Translation do
   alias CdcBooks.Books.{Page, TranslationBook}
 
   schema "translations" do
-    field :text, :string
-    field :path, :string
+    field :text, :string, default: ""
+    field :path, :string, default: ""
 
     belongs_to :page, Page
     belongs_to :translation_book, TranslationBook
@@ -17,6 +17,6 @@ defmodule CdcBooks.Books.Translation do
   def changeset(translation, attrs) do
     translation
     |> cast(attrs, [:text, :path, :page_id, :translation_book_id])
-    |> validate_required([:text, :path, :page_id, :translation_book_id])
+    |> validate_required([:page_id, :translation_book_id])
   end
 end

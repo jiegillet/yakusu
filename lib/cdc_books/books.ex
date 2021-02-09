@@ -224,14 +224,16 @@ defmodule CdcBooks.Books do
 
   def list_translations(%Page{id: id}) do
     from(t in Translation,
-      where: t.page_id == ^id
+      where: t.page_id == ^id,
+      order_by: t.inserted_at
     )
     |> Repo.all()
   end
 
   def list_translations(%TranslationBook{id: id}) do
     from(t in Translation,
-      where: t.translation_book_id == ^id
+      where: t.translation_book_id == ^id,
+      order_by: t.inserted_at
     )
     |> Repo.all()
   end
