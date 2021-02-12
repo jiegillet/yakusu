@@ -1,11 +1,9 @@
 module Page.AddBook exposing (Model, Msg, init, subscriptions, update, view)
 
 import Animation
-import Api exposing (Cred)
+import Api exposing (Cred, GraphQLData)
 import Api.Endpoint as Endpoint
 import Base64
-import Browser.Dom as Dom
-import Browser.Events
 import Bytes exposing (Bytes, Endianness(..))
 import Bytes.Decode
 import Bytes.Encode
@@ -31,13 +29,13 @@ import Html.Attributes as Attributes
 import Html.Events
 import Http
 import Json.Decode as Decode exposing (Decoder)
+import LanguageSelect
 import Page.Books exposing (Book)
 import RemoteData exposing (RemoteData(..), WebData)
 import Route
 import Style
 import Svg
 import Svg.Attributes as S
-import Task
 import Types exposing (Category, Language)
 
 
@@ -49,15 +47,14 @@ type alias Model =
     { context : Context
     , cred : Cred
     , bookId : Maybe String
-    , editParams : { book : RemoteData (Error (Maybe Book)) (Maybe Book), cmd : List (Cmd Msg), button : String, isNew : Bool }
-    , book : RemoteData (Error (Maybe Book)) (Maybe Book)
-    , categories : RemoteData (Error (List Category)) (List Category)
-    , languages : RemoteData (Error (List Language)) (List Language)
+    , editParams : { book : GraphQLData (Maybe Book), cmd : List (Cmd Msg), button : String, isNew : Bool }
+    , book : GraphQLData (Maybe Book)
+    , categories : GraphQLData (List Category)
+    , languages : GraphQLData (List Language)
     , title : String
     , author : String
     , category : Maybe Category
-    , language : SelectLanguage
-    , languageDropdown : LanguageDropdown
+    , language : LanguageSelect.Model Msg
     , hoverUploadBox : Bool
     , previews : List Image
     , oldImages : List Image
@@ -73,7 +70,7 @@ init context cred bookId =
             case bookId of
                 Nothing ->
                     { book = NotAsked
-                    , cmd = []
+                    , cmd = [ getlanguages cred Nothing ]
                     , button = "Add Book"
                     , isNew = True
                     }
@@ -81,7 +78,7 @@ init context cred bookId =
                 Just id ->
                     { book = Loading
                     , cmd = [ getBook cred id, getPages cred id ]
-                    , button = "Save Edits"
+                    , button = "Edit Book"
                     , isNew = False
                     }
     in
@@ -95,11 +92,10 @@ init context cred bookId =
       , oldImages = []
       , categories = Loading
       , languages = Loading
-      , languageDropdown = Closed
+      , language = LanguageSelect.defaultModel LanguageMsg
       , dnd = system.model
       , title = ""
       , author = ""
-      , language = Japanese
       , category = Nothing
       , crossAnimation =
             Animation.style
@@ -107,32 +103,8 @@ init context cred bookId =
                 , Animation.transformOrigin (Animation.percent 50) (Animation.percent 50) (Animation.percent 0)
                 ]
       }
-    , Cmd.batch (getCategories cred :: getlanguages cred :: editParams.cmd)
+    , Cmd.batch (getCategories cred :: editParams.cmd)
     )
-
-
-type LanguageDropdown
-    = Closed
-    | Set Language
-    | Open DropDownInfo
-
-
-type alias DropDownInfo =
-    { text : String
-    , selectedLanguage : Maybe Language
-    , hoveredLanguage : Maybe Language
-    }
-
-
-emptyDropdownInfo : DropDownInfo
-emptyDropdownInfo =
-    DropDownInfo "" Nothing Nothing
-
-
-type SelectLanguage
-    = Japanese
-    | English
-    | Other
 
 
 type alias Image =
@@ -165,16 +137,6 @@ system =
 -- HELPER
 
 
-maybeToList : Maybe a -> List a
-maybeToList maybe =
-    case maybe of
-        Nothing ->
-            []
-
-        Just a ->
-            [ a ]
-
-
 setAt : Int -> a -> List a -> List a
 setAt index a list =
     if index >= 0 && index < List.length list then
@@ -189,18 +151,13 @@ setAt index a list =
 
 
 type Msg
-    = GotLanguages (RemoteData (Error (List Language)) (List Language))
-    | GotCategories (RemoteData (Error (List Category)) (List Category))
-    | GotExistingBook (RemoteData (Error (Maybe Book)) (Maybe Book))
+    = GotLanguages (Maybe Language) (GraphQLData (List Language))
+    | GotCategories (GraphQLData (List Category))
+    | GotExistingBook (GraphQLData (Maybe Book))
     | InputTitle String
     | InputAuthor String
     | ClickedCategory Category Bool
-      -- Language and Dropdown
-    | InputLanguage SelectLanguage
-    | SelectLanguage SelectLanguage
-    | EnteredSearchText String
-    | ClickedwhileOpenDropDown
-    | DropdownInfoChanged DropDownInfo
+    | LanguageMsg LanguageSelect.Msg
       -- File Upload
     | GotExistingPages (WebData (List Image))
     | DragEnterUploadBox
@@ -220,8 +177,25 @@ type Msg
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
-        GotLanguages result ->
-            ( { model | languages = result }, Cmd.none )
+        GotLanguages maybeLanguage result ->
+            ( case result of
+                Success languages ->
+                    { model
+                        | languages = result
+                        , language = LanguageSelect.init languages maybeLanguage "attr-Title" LanguageMsg
+                    }
+
+                _ ->
+                    { model | languages = result }
+            , Cmd.none
+            )
+
+        LanguageMsg languageMsg ->
+            let
+                ( language, newMsg ) =
+                    LanguageSelect.update languageMsg model.language
+            in
+            ( { model | language = language }, newMsg )
 
         GotCategories result ->
             ( { model | categories = result }, Cmd.none )
@@ -233,26 +207,8 @@ update msg model =
                         | title = title
                         , author = author
                         , category = Just category
-                        , language =
-                            if language.id == "jp" then
-                                Japanese
-
-                            else if language.id == "en" then
-                                English
-
-                            else
-                                Other
-                        , languageDropdown =
-                            if language.id == "jp" then
-                                Closed
-
-                            else if language.id == "en" then
-                                Closed
-
-                            else
-                                Set language
                       }
-                    , Cmd.none
+                    , getlanguages model.cred (Just language)
                     )
 
                 _ ->
@@ -266,60 +222,6 @@ update msg model =
 
         ClickedCategory category _ ->
             ( { model | category = Just category }, Cmd.none )
-
-        -- Language and Dropdown
-        InputLanguage language ->
-            case language of
-                Other ->
-                    ( model
-                    , Task.perform (always (SelectLanguage Other)) (Task.succeed ())
-                    )
-
-                _ ->
-                    ( model
-                      -- This is for the input-in-radio bug workaround https://github.com/mdgriffith/elm-ui/issues/250
-                    , Task.attempt (always (SelectLanguage language)) (Dom.focus "attr-Title")
-                    )
-
-        SelectLanguage language ->
-            ( { model | language = language }, Cmd.none )
-
-        EnteredSearchText search ->
-            case model.languageDropdown of
-                Closed ->
-                    ( { model | languageDropdown = Open { emptyDropdownInfo | text = search } }, Cmd.none )
-
-                Set lan ->
-                    ( { model
-                        | languageDropdown =
-                            Open { emptyDropdownInfo | text = String.right 1 search, selectedLanguage = Just lan }
-                      }
-                    , Cmd.none
-                    )
-
-                Open info ->
-                    ( { model | languageDropdown = Open { info | text = search } }, Cmd.none )
-
-        ClickedwhileOpenDropDown ->
-            case model.languageDropdown of
-                Open { selectedLanguage } ->
-                    case selectedLanguage of
-                        Nothing ->
-                            ( { model | languageDropdown = Closed }, Cmd.none )
-
-                        Just lan ->
-                            ( { model | languageDropdown = Set lan }, Cmd.none )
-
-                other ->
-                    ( { model | languageDropdown = other }, Cmd.none )
-
-        DropdownInfoChanged dropdownInfo ->
-            case model.languageDropdown of
-                Open _ ->
-                    ( { model | languageDropdown = Open dropdownInfo }, Cmd.none )
-
-                other ->
-                    ( { model | languageDropdown = other }, Cmd.none )
 
         -- File Upload
         GotExistingPages result ->
@@ -399,23 +301,8 @@ update msg model =
 
         -- Saving
         ClickedSave ->
-            let
-                maybeLanguage =
-                    case ( model.language, model.languageDropdown ) of
-                        ( Other, Set lan ) ->
-                            Just lan
-
-                        ( English, _ ) ->
-                            Just (Language "en" "English")
-
-                        ( Japanese, _ ) ->
-                            Just (Language "jp" "Japanese")
-
-                        _ ->
-                            Nothing
-            in
             -- TODO Full check: non-empty title author pages
-            case ( model.category, maybeLanguage ) of
+            case ( model.category, LanguageSelect.getLanguage model.language ) of
                 ( Just category, Just language ) ->
                     ( model
                     , createBook model.cred model.bookId model.title model.author language category
@@ -447,20 +334,11 @@ update msg model =
 
 subscriptions : Model -> Sub Msg
 subscriptions model =
-    let
-        dropdown =
-            case model.languageDropdown of
-                Open _ ->
-                    [ Browser.Events.onClick (Decode.succeed ClickedwhileOpenDropDown) ]
-
-                _ ->
-                    []
-    in
     Sub.batch
-        (system.subscriptions model.dnd
-            :: Animation.subscription Animate [ model.crossAnimation ]
-            :: dropdown
-        )
+        [ system.subscriptions model.dnd
+        , LanguageSelect.subscriptions model.language
+        , Animation.subscription Animate [ model.crossAnimation ]
+        ]
 
 
 
@@ -494,7 +372,7 @@ view model =
     { title = "Original Book"
     , body =
         case ( model.categories, model.languages ) of
-            ( Success categories, Success languages ) ->
+            ( Success categories, Success _ ) ->
                 El.column
                     [ width 1000
                     , El.spacing 30
@@ -502,7 +380,7 @@ view model =
                     ]
                     [ back
                     , explanation
-                    , viewForm model categories languages
+                    , viewForm model categories
                     ]
                     |> El.el [ El.paddingXY 100 30 ]
 
@@ -511,10 +389,10 @@ view model =
     }
 
 
-viewForm : Model -> List Category -> List Language -> Element Msg
-viewForm { title, author, language, category, languageDropdown, dnd, previews, crossAnimation, editParams } categories languages =
+viewForm : Model -> List Category -> Element Msg
+viewForm { title, author, language, category, dnd, previews, crossAnimation, editParams } categories =
     El.column [ El.spacing 20, El.width El.fill, Font.size 18 ]
-        [ viewLanguageChoice languageDropdown language languages
+        [ LanguageSelect.view language
             |> El.el [ El.paddingEach { left = 40, right = 0, top = 0, bottom = 0 } ]
         , viewTextInput title "Title" InputTitle
         , viewTextInput author "Author(s)" InputAuthor
@@ -531,28 +409,6 @@ viewForm { title, author, language, category, languageDropdown, dnd, previews, c
                 El.row [ El.paddingXY 10 5, height 40, width 140 ] [ El.text editParams.button, iconPlaceholder ]
             }
         ]
-
-
-viewLanguageChoice : LanguageDropdown -> SelectLanguage -> List Language -> Element Msg
-viewLanguageChoice dropdown language languages =
-    Input.radioRow [ El.spacing 30 ]
-        { onChange = InputLanguage
-        , label =
-            Input.labelLeft [ El.paddingEach { top = 0, bottom = 0, left = 0, right = 30 } ]
-                (El.text "Original Language"
-                    |> El.el [ El.padding 10, El.centerY ]
-                    |> El.el
-                        [ Background.color Style.nightBlue
-                        , height 42
-                        ]
-                )
-        , selected = Just language
-        , options =
-            [ Input.option Japanese (El.text "Japanese" |> El.el [ El.centerY ] |> El.el [ height 42 ])
-            , Input.option English (El.text "English" |> El.el [ El.centerY ] |> El.el [ height 42 ])
-            , Input.option Other (viewLanguageDropdown dropdown languages)
-            ]
-        }
 
 
 viewTextInput : String -> String -> (String -> Msg) -> Element Msg
@@ -577,75 +433,6 @@ viewTextInput text label message =
                 (El.el [ width 100, El.padding 10, El.centerY ] (El.text label))
         }
         |> El.el [ El.paddingEach { left = 40, right = 0, top = 0, bottom = 0 } ]
-
-
-viewLanguageDropdown : LanguageDropdown -> List Language -> Element Msg
-viewLanguageDropdown dropdown languages =
-    let
-        languageList text selectedLanguage =
-            maybeToList selectedLanguage
-                ++ (languages
-                        |> List.filter (\{ language } -> String.contains (String.toLower text) (String.toLower language))
-                        |> List.sortBy .language
-                        |> List.take 7
-                   )
-
-        viewDropdownLanguage info language =
-            El.text language.language
-                |> El.el
-                    ([ El.width El.fill
-                     , El.padding 2
-                     , Events.onMouseEnter (DropdownInfoChanged { info | hoveredLanguage = Just language })
-                     , Events.onClick (DropdownInfoChanged { info | selectedLanguage = Just language })
-                     ]
-                        ++ (if Just language == info.hoveredLanguage then
-                                [ Background.color Style.nightBlue, Font.color Style.white ]
-
-                            else
-                                [ Background.color Style.white ]
-                           )
-                    )
-    in
-    Input.search
-        ([ width 280
-         , Border.width 2
-         , Border.color Style.nightBlue
-         ]
-            ++ (case dropdown of
-                    Open ({ text, selectedLanguage } as info) ->
-                        case languageList text selectedLanguage of
-                            [] ->
-                                []
-
-                            list ->
-                                [ list
-                                    |> List.map (viewDropdownLanguage info)
-                                    |> El.column
-                                        [ El.width El.fill
-                                        , Border.width 2
-                                        , Border.color Style.nightBlue
-                                        ]
-                                    |> El.below
-                                ]
-
-                    _ ->
-                        []
-               )
-        )
-        { text =
-            case dropdown of
-                Closed ->
-                    ""
-
-                Set { language } ->
-                    language
-
-                Open { text } ->
-                    text
-        , onChange = EnteredSearchText
-        , placeholder = Just (Input.placeholder [] (El.text "Other..."))
-        , label = Input.labelHidden "Search language"
-        }
 
 
 viewCategories : Maybe Category -> List Category -> Element Msg
@@ -917,9 +704,9 @@ getCategories cred =
     Api.queryRequest cred (Query.categories Types.categorySelection) GotCategories
 
 
-getlanguages : Cred -> Cmd Msg
-getlanguages cred =
-    Api.queryRequest cred (Query.languages Types.languageSelection) GotLanguages
+getlanguages : Cred -> Maybe Language -> Cmd Msg
+getlanguages cred maybeLanguage =
+    Api.queryRequest cred (Query.languages Types.languageSelection) (GotLanguages maybeLanguage)
 
 
 bookQuery : String -> SelectionSet (Maybe Book) RootQuery
