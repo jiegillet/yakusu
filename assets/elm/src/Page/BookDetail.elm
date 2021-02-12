@@ -101,7 +101,7 @@ view model =
                 , width 220
                 ]
                 (El.row [ El.paddingXY 10 5, height 40 ] [ iconPlaceholder, El.text "Add a New Book" ])
-                |> El.el [ El.paddingEach { left = 40, right = 0, top = 0, bottom = 0 }, Font.size 20, El.alignRight ]
+                |> El.el [ El.paddingEach { left = 40, right = 0, top = 25, bottom = 0 }, Font.size 20, El.alignRight ]
     in
     { title = "Thank You"
     , body =
@@ -150,10 +150,10 @@ viewBook { id, title, author, language, category, numPages } =
                     [ iconPlaceholder, El.text "Edit Book" |> El.el [ El.centerY, El.paddingXY 5 0, width 180 ] ]
                 )
             ]
-        , viewField "Original language" (El.text language.language)
-        , viewField "Author" (El.text author)
-        , viewField "Theme" (El.text category.name)
-        , viewField "Pages" (El.text (String.fromInt numPages))
+        , viewField 40 "Original language" language.language
+        , viewField 40 "Author" author
+        , viewField 40 "Theme" category.name
+        , viewField 40 "Pages" (String.fromInt numPages)
         ]
 
 
@@ -181,24 +181,26 @@ viewTranslations books bookId =
             , addTranslation
             ]
             :: List.map
-                (\{ language, title } ->
-                    viewField language.language
-                        (El.row [ El.spacing 5 ] [ iconPlaceholder, El.text title ])
+                (\{ id, language, title } ->
+                    El.row []
+                        [ Route.link (Route.Translation id) [] iconPlaceholder
+                        , viewField 5 language.language title
+                        ]
                 )
                 books
         )
 
 
-viewField : String -> Element msg -> Element msg
-viewField description value =
+viewField : Int -> String -> String -> Element msg
+viewField offset description value =
     El.row
-        [ El.paddingEach { top = 0, left = 40, right = 0, bottom = 0 }
+        [ El.paddingEach { top = 0, left = offset, right = 0, bottom = 0 }
         , width 160
         , El.spacing 20
         , Font.size 18
         ]
         [ El.el [ Background.color Style.grey, El.centerY, width 160, El.padding 5 ] (El.text description)
-        , El.el [ El.centerY ] value
+        , El.el [ El.centerY ] (El.text value)
         ]
 
 
