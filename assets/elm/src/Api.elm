@@ -1,5 +1,6 @@
 port module Api exposing
     ( Cred(..)
+    , GraphQLData
     , User
     , application
     , credDecoder
@@ -214,7 +215,11 @@ patch url cred bodyEncoder toMsg decoder =
 -- GRAPHQL
 
 
-queryRequest : Cred -> SelectionSet a RootQuery -> (RemoteData (Error a) a -> msg) -> Cmd msg
+type alias GraphQLData a =
+    RemoteData (Error a) a
+
+
+queryRequest : Cred -> SelectionSet a RootQuery -> (GraphQLData a -> msg) -> Cmd msg
 queryRequest cred query toMsg =
     query
         |> Endpoint.queryRequest Endpoint.graphql
@@ -222,7 +227,7 @@ queryRequest cred query toMsg =
         |> Graphql.Http.send (RemoteData.fromResult >> toMsg)
 
 
-mutationRequest : Cred -> SelectionSet a RootMutation -> (RemoteData (Error a) a -> msg) -> Cmd msg
+mutationRequest : Cred -> SelectionSet a RootMutation -> (GraphQLData a -> msg) -> Cmd msg
 mutationRequest cred mutation toMsg =
     mutation
         |> Endpoint.mutationRequest Endpoint.graphql

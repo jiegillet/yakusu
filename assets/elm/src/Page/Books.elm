@@ -1,6 +1,6 @@
 module Page.Books exposing (Book, BookTranslation, Model, Msg, bookSelection, bookTranslationSelection, init, update, view)
 
-import Api exposing (Cred)
+import Api exposing (Cred, GraphQLData)
 import Common exposing (Context, height, width)
 import Element as El exposing (Element, column)
 import Element.Background as Background
@@ -11,7 +11,6 @@ import GraphQLBook.Object
 import GraphQLBook.Object.Book as GBook
 import GraphQLBook.Object.TranslationBook as TBook
 import GraphQLBook.Query as Query
-import Graphql.Http exposing (Error)
 import Graphql.SelectionSet as SelectionSet exposing (SelectionSet)
 import RemoteData exposing (RemoteData(..))
 import Route
@@ -46,8 +45,8 @@ type alias BookTranslation =
 type alias Model =
     { context : Context
     , cred : Cred
-    , books : RemoteData (Error (List Book)) (List Book)
-    , categories : RemoteData (Error (List Category)) (List Category)
+    , books : GraphQLData (List Book)
+    , categories : GraphQLData (List Category)
     , checkedCategories : List Category
     , tableOrdering : ( Column, Ordering )
     }
@@ -95,8 +94,8 @@ type Column
 
 
 type Msg
-    = GotBooks (RemoteData (Error (List Book)) (List Book))
-    | GotCategories (RemoteData (Error (List Category)) (List Category))
+    = GotBooks (GraphQLData (List Book))
+    | GotCategories (GraphQLData (List Category))
     | CheckedTopic Category Bool
     | ClickedOrder Column
 
