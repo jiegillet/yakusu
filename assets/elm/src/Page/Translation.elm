@@ -45,8 +45,9 @@ type alias Model =
     , path : String
     , pages : RemoteData (Error (Maybe (ZipList Page))) (Maybe (ZipList Page))
     , mode : Mode
-    , stayInEditMode : Bool
+    , editModeState : FocusState
     , notes : String
+    , notesInputState : FocusState
     }
 
 
@@ -61,8 +62,9 @@ init context cred bookId =
       , path = ""
       , pages = Loading
       , mode = Read
-      , stayInEditMode = False
+      , editModeState = Inactive
       , notes = ""
+      , notesInputState = Inactive
       }
     , requestBook cred bookId
     )
@@ -84,8 +86,6 @@ type alias Translation =
     , pageId : String
     , text : String
     , path : String
-
-    -- , color : Color
     }
 
 
@@ -133,6 +133,25 @@ type alias Color =
     }
 
 
+type FocusState
+    = Inactive
+    | Clicked
+    | Focused
+
+
+lowerNotesState : FocusState -> FocusState
+lowerNotesState state =
+    case state of
+        Clicked ->
+            Focused
+
+        Focused ->
+            Inactive
+
+        Inactive ->
+            Inactive
+
+
 toHex : Color -> String
 toHex { red, green, blue, alpha } =
     String.concat
@@ -168,6 +187,7 @@ type Msg
     | Drew Bool Position
     | StoppedDrawing
     | InputText String
+    | ClickedNotes
     | InputNotes String
     | ClickedResetPath
     | ClickedNewTranslation String
@@ -176,7 +196,7 @@ type Msg
     | PressedKey Key
     | ClickedSave
     | ClickedTranslation Translation
-    | ClickedDuringEditing
+    | ClickedSomewhereOnPage
     | ClickedDelete Translation
     | GotBook (RemoteData (Error (Maybe (ZipList Page))) (Maybe (ZipList Page)))
     | AddedTranslation (ZipList Page -> ZipList Page) (RemoteData (Error (Maybe Translation)) (Maybe Translation))
@@ -188,7 +208,7 @@ update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
         StartedDrawing ->
-            ( { model | drawingState = Drawing { x = 0, y = 0 }, stayInEditMode = True }
+            ( { model | drawingState = Drawing { x = 0, y = 0 }, editModeState = Clicked }
             , Cmd.none
             )
 
@@ -215,7 +235,7 @@ update msg model =
                         |> keepEvery 5
                         |> catmullRom
                         |> (++) (" " ++ model.path)
-                , stayInEditMode = True
+                , editModeState = Clicked
               }
             , Cmd.none
             )
@@ -223,22 +243,24 @@ update msg model =
         InputText text ->
             ( { model | text = text }, Cmd.none )
 
+        ClickedNotes ->
+            ( { model | notesInputState = Clicked }, Cmd.none )
+
         InputNotes text ->
             ( { model | notes = text }, Cmd.none )
 
         ClickedTranslation ({ text, path } as translation) ->
+            let
+                clickedModel =
+                    { model | editModeState = Clicked }
+            in
             case model.mode of
                 Edit trans ->
                     if trans == translation then
-                        ( { model | stayInEditMode = True }, Cmd.none )
+                        ( clickedModel, Cmd.none )
 
                     else
-                        ( { model
-                            | mode = Edit translation
-                            , text = text
-                            , path = path
-                            , stayInEditMode = True
-                          }
+                        ( { clickedModel | mode = Edit translation, text = text, path = path }
                         , mutateTranslation model.cred
                             model.bookId
                             { trans | text = model.text, path = model.path }
@@ -252,16 +274,24 @@ update msg model =
                         )
 
                 Read ->
-                    ( { model | mode = Edit translation, text = text, path = path, stayInEditMode = True }
+                    ( { clickedModel | mode = Edit translation, text = text, path = path }
                     , Cmd.none
                     )
 
-        ClickedDuringEditing ->
-            if model.stayInEditMode then
-                ( { model | stayInEditMode = False }, Cmd.none )
+        ClickedSomewhereOnPage ->
+            let
+                newModel =
+                    { model
+                        | editModeState = lowerNotesState model.editModeState
+                        , notesInputState = lowerNotesState model.notesInputState
+                    }
+            in
+            case model.editModeState of
+                Focused ->
+                    saveTranslationAndMove newModel identity
 
-            else
-                saveTranslationAndMove { model | stayInEditMode = False } identity
+                _ ->
+                    ( newModel, Cmd.none )
 
         ClickedDelete translation ->
             case translation.id of
@@ -272,13 +302,13 @@ update msg model =
                     ( model, deleteTranslation model.cred id )
 
         ClickedResetPath ->
-            ( { model | path = "", stayInEditMode = True }, Cmd.none )
+            ( { model | path = "", editModeState = Clicked }, Cmd.none )
 
         ClickedNewTranslation pageId ->
             saveTranslationAndMove
                 { model
                     | mode = Edit (Translation Nothing pageId model.text model.path)
-                    , stayInEditMode = True
+                    , editModeState = Clicked
                 }
                 identity
 
@@ -440,18 +470,18 @@ toKey string =
 
 subscriptions : Model -> Sub Msg
 subscriptions model =
-    case ( model.drawingState, model.mode ) of
-        ( Drawing _, _ ) ->
+    case ( model.drawingState, model.mode, model.notesInputState ) of
+        ( Drawing _, _, _ ) ->
             Sub.batch
                 [ Browser.Events.onMouseMove (Decode.map2 Drew decodeButtons decodePosition)
                 , Browser.Events.onMouseUp (Decode.succeed StoppedDrawing)
                 ]
 
-        ( NotDrawing, Read ) ->
+        ( NotDrawing, Read, Inactive ) ->
             Browser.Events.onKeyDown (Decode.map PressedKey keyDecoder)
 
-        ( NotDrawing, Edit _ ) ->
-            Browser.Events.onClick (Decode.succeed ClickedDuringEditing)
+        _ ->
+            Browser.Events.onClick (Decode.succeed ClickedSomewhereOnPage)
 
 
 decodeButtons : Decoder Bool
@@ -791,7 +821,13 @@ viewTranslation mode text color translation =
 
 viewNotes : String -> Element Msg
 viewNotes notes =
-    Input.multiline [ width 290, El.alignRight, El.height (El.minimum 300 El.fill), El.alignTop ]
+    Input.multiline
+        [ width 290
+        , El.alignRight
+        , El.height (El.minimum 300 El.fill)
+        , El.alignTop
+        , Element.Events.onClick ClickedNotes
+        ]
         { onChange = InputNotes
         , text = notes
         , placeholder =
