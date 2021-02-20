@@ -4,11 +4,12 @@ defmodule CdcBooks.Books.TranslationBook do
   alias CdcBooks.Books.{Book, Translation}
   alias CdcBooks.Languages.Language
 
-  @required_fields ~w"title author notes translator book_id language_id"a
+  @all_fields ~w"title author notes translator book_id language_id"a
+  @required_fields ~w"title author translator book_id language_id"a
 
   schema "translation_books" do
     field :author, :string
-    field :notes, :string
+    field :notes, :string, default: ""
     field :title, :string
     field :translator, :string
 
@@ -22,7 +23,7 @@ defmodule CdcBooks.Books.TranslationBook do
   @doc false
   def changeset(translation_book, attrs) do
     translation_book
-    |> cast(attrs, @required_fields)
+    |> cast(attrs, @all_fields)
     |> validate_required(@required_fields)
   end
 end
