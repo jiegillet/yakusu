@@ -156,7 +156,7 @@ view model =
             ( Success books, Success categories ) ->
                 El.column
                     [ El.spacing 25
-                    , El.paddingXY 20 50
+                    , El.paddingXY 0 50
                     , width 1000
                     , El.centerX
                     ]
@@ -225,11 +225,11 @@ viewCategories checkedCategories categories =
     El.column [ El.spacing 20 ]
         [ El.row [ Background.color Style.grey, width 250, height 45, Font.size 20 ]
             [ iconPlaceholder
-            , El.text "Filter by Topic"
+            , El.text "Filter by Theme"
             ]
         , categories
             |> List.map viewCategory
-            |> El.wrappedRow [ El.paddingXY 40 0, El.spacing 10 ]
+            |> El.wrappedRow [ El.paddingEach { top = 0, bottom = 0, left = 40, right = 10 }, El.spacing 10 ]
         ]
 
 
@@ -344,13 +344,13 @@ viewBooks checkedCategories ( column, order ) books =
             , { header = header "Translations available" AvailableTranslation
               , width = El.fill
               , view =
-                    \i { translations } ->
+                    \i { translations, id } ->
                         translations
                             |> List.map
-                                (\{ id, language } ->
-                                    Route.link (Route.Translation id)
+                                (\translation ->
+                                    Route.link (Route.EditTranslation id translation.id)
                                         [ Font.underline ]
-                                        (El.text language.language)
+                                        (El.text translation.language.language)
                                 )
                             |> El.column []
                             |> content i

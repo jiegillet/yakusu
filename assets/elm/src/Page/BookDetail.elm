@@ -183,7 +183,7 @@ viewTranslations books bookId =
             :: List.map
                 (\{ id, language, title } ->
                     El.row []
-                        [ Route.link (Route.Translation id) [] iconPlaceholder
+                        [ Route.link (Route.EditTranslation bookId id) [] iconPlaceholder
                         , viewField 5 language.language title
                         ]
                 )

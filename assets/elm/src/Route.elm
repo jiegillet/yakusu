@@ -10,12 +10,12 @@ import Url.Parser.Query as Query
 
 type Route
     = Login
-    | Translation String
     | Books
     | AddBook
     | EditBook String
     | BookDetail String Bool
     | AddTranslation String
+    | EditTranslation String String
 
 
 parser : Parser (Route -> a) a
@@ -32,11 +32,11 @@ parser =
     Parser.oneOf
         [ Parser.map Books Parser.top
         , Parser.map Login (Parser.s "login")
-        , Parser.map Translation (Parser.s "translation" </> Parser.string)
         , Parser.map EditBook (Parser.s "book" </> Parser.s "edit" </> Parser.string)
         , Parser.map AddBook (Parser.s "book" </> Parser.s "add")
         , Parser.map BookDetail (Parser.s "book" </> Parser.s "detail" </> Parser.string <?> (Query.string "status" |> Query.map toBool))
         , Parser.map AddTranslation (Parser.s "translate" </> Parser.string)
+        , Parser.map EditTranslation (Parser.s "translate" </> Parser.string </> Parser.string)
         ]
 
 
@@ -61,11 +61,11 @@ routeToPieces route =
         BookDetail id False ->
             ( [ "book", "detail", id ], [] )
 
-        Translation id ->
-            ( [ "translation", id ], [] )
+        AddTranslation bookId ->
+            ( [ "translate", bookId ], [] )
 
-        AddTranslation id ->
-            ( [ "translate", id ], [] )
+        EditTranslation bookId translationId ->
+            ( [ "translate", bookId, translationId ], [] )
 
 
 fromUrl : Url -> Maybe Route

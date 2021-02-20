@@ -17,7 +17,6 @@ import Page.BookDetail as BookDetail
 import Page.Books as Books
 import Page.Login as Login
 import Page.NotFound as NotFound
-import Page.Translation as Translation
 import Route exposing (Route(..))
 import Task
 import Url exposing (Url)
@@ -43,7 +42,6 @@ type Model
     | BookDetail BookDetail.Model
     | AddTranslation AddTranslation.Model
     | Login Login.Model
-    | Translation Translation.Model
 
 
 init : Maybe Cred -> Url -> Key -> ( Model, Cmd Msg )
@@ -80,9 +78,6 @@ getContext model =
         Login { context } ->
             context
 
-        Translation { context } ->
-            context
-
 
 updateContext : (Context -> Context) -> Model -> Model
 updateContext updtateContext model =
@@ -108,9 +103,6 @@ updateContext updtateContext model =
         Login subModel ->
             Login { subModel | context = updtateContext subModel.context }
 
-        Translation subModel ->
-            Translation { subModel | context = updtateContext subModel.context }
-
 
 
 -- UPDATE
@@ -128,7 +120,6 @@ type Msg
     | GotAddBookMsg AddBook.Msg
     | GotBookDetailMsg BookDetail.Msg
     | GotAddTranslationMsg AddTranslation.Msg
-    | GotTranslationMsg Translation.Msg
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -195,10 +186,6 @@ update msg model =
             Login.update subMsg subModel
                 |> updateWith Login GotLoginMsg
 
-        ( GotTranslationMsg subMsg, Translation subModel ) ->
-            Translation.update subMsg subModel
-                |> updateWith Translation GotTranslationMsg
-
         ( _, _ ) ->
             ( model, Cmd.none )
 
@@ -246,16 +233,16 @@ changeRouteTo maybeRoute model =
                         |> updateWith BookDetail GotBookDetailMsg
 
                 Just (Route.AddTranslation bookId) ->
-                    AddTranslation.init context cred bookId
+                    AddTranslation.init context cred bookId Nothing
+                        |> updateWith AddTranslation GotAddTranslationMsg
+
+                Just (Route.EditTranslation bookId trBookId) ->
+                    AddTranslation.init context cred bookId (Just trBookId)
                         |> updateWith AddTranslation GotAddTranslationMsg
 
                 Just Route.Login ->
                     Login.init (Just Route.Books) context
                         |> updateWith Login GotLoginMsg
-
-                Just (Route.Translation id) ->
-                    Translation.init context cred id
-                        |> updateWith Translation GotTranslationMsg
 
 
 
@@ -275,8 +262,8 @@ subscriptions model =
 
         special =
             case model of
-                Translation subModel ->
-                    [ Sub.map GotTranslationMsg (Translation.subscriptions subModel) ]
+                AddTranslation subModel ->
+                    [ Sub.map GotAddTranslationMsg (AddTranslation.subscriptions subModel) ]
 
                 Login subModel ->
                     [ Sub.map GotLoginMsg (Login.subscriptions subModel) ]
@@ -332,6 +319,3 @@ view model =
 
         Login subModel ->
             viewPageWith GotLoginMsg (Login.view subModel)
-
-        Translation subModel ->
-            viewPageWith GotTranslationMsg (Translation.view subModel)
