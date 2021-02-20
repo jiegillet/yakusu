@@ -70,7 +70,7 @@ init context cred bookId =
             case bookId of
                 Nothing ->
                     { book = NotAsked
-                    , cmd = [ getlanguages cred Nothing ]
+                    , cmd = []
                     , button = "Add Book"
                     , isNew = True
                     }
@@ -92,7 +92,7 @@ init context cred bookId =
       , oldImages = []
       , categories = Loading
       , languages = Loading
-      , language = LanguageSelect.defaultModel LanguageMsg
+      , language = LanguageSelect.init "Original Language" "attr-Title" LanguageMsg
       , dnd = system.model
       , title = ""
       , author = ""
@@ -103,7 +103,7 @@ init context cred bookId =
                 , Animation.transformOrigin (Animation.percent 50) (Animation.percent 50) (Animation.percent 0)
                 ]
       }
-    , Cmd.batch (getCategories cred :: editParams.cmd)
+    , Cmd.batch (getCategories cred :: getlanguages cred :: editParams.cmd)
     )
 
 
@@ -151,7 +151,7 @@ setAt index a list =
 
 
 type Msg
-    = GotLanguages (Maybe Language) (GraphQLData (List Language))
+    = GotLanguages (GraphQLData (List Language))
     | GotCategories (GraphQLData (List Category))
     | GotExistingBook (GraphQLData (Maybe Book))
     | InputTitle String
@@ -177,12 +177,12 @@ type Msg
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
-        GotLanguages maybeLanguage result ->
+        GotLanguages result ->
             ( case result of
                 Success languages ->
                     { model
                         | languages = result
-                        , language = LanguageSelect.init languages maybeLanguage "attr-Title" LanguageMsg
+                        , language = LanguageSelect.updateLanguageList languages model.language
                     }
 
                 _ ->
@@ -207,8 +207,9 @@ update msg model =
                         | title = title
                         , author = author
                         , category = Just category
+                        , language = LanguageSelect.updateLanguage language model.language
                       }
-                    , getlanguages model.cred (Just language)
+                    , Cmd.none
                     )
 
                 _ ->
@@ -463,7 +464,7 @@ viewCategories category categories =
             [ iconPlaceholder, El.text "Select Theme" ]
         , categories
             |> List.map viewCategory
-            |> El.wrappedRow [ El.paddingXY 40 0, El.spacing 10 ]
+            |> El.wrappedRow [ El.paddingEach { top = 0, bottom = 0, left = 40, right = 10 }, El.spacing 10 ]
         ]
         |> El.el [ El.paddingEach { top = 5, bottom = 0, left = 0, right = 0 } ]
 
@@ -704,9 +705,9 @@ getCategories cred =
     Api.queryRequest cred (Query.categories Types.categorySelection) GotCategories
 
 
-getlanguages : Cred -> Maybe Language -> Cmd Msg
-getlanguages cred maybeLanguage =
-    Api.queryRequest cred (Query.languages Types.languageSelection) (GotLanguages maybeLanguage)
+getlanguages : Cred -> Cmd Msg
+getlanguages cred =
+    Api.queryRequest cred (Query.languages Types.languageSelection) GotLanguages
 
 
 bookQuery : String -> SelectionSet (Maybe Book) RootQuery

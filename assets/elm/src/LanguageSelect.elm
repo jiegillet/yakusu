@@ -1,4 +1,4 @@
-module LanguageSelect exposing (Model, Msg, defaultModel, getLanguage, init, subscriptions, update, view)
+module LanguageSelect exposing (Model, Msg, getLanguage, init, subscriptions, update, updateLanguage, updateLanguageList, view)
 
 import Browser.Dom as Dom
 import Browser.Events
@@ -25,53 +25,48 @@ type alias Model msg =
     , languageDropdown : LanguageDropdown
     , focus : String
     , toMsg : Msg -> msg
+    , labelText : String
     }
 
 
-defaultModel : (Msg -> msg) -> Model msg
-defaultModel toMsg =
+init : String -> String -> (Msg -> msg) -> Model msg
+init labelText focus toMsg =
     { languages = []
     , selectLanguage = Japanese
     , languageDropdown = Closed
-    , focus = ""
+    , focus = focus
     , toMsg = toMsg
+    , labelText = labelText
     }
 
 
-init : List Language -> Maybe Language -> String -> (Msg -> msg) -> Model msg
-init languages maybeLanguage focus toMsg =
-    case maybeLanguage of
-        Nothing ->
-            { languages = languages
-            , languageDropdown = Closed
-            , selectLanguage = Japanese
-            , focus = focus
-            , toMsg = toMsg
-            }
+updateLanguageList : List Language -> Model msg -> Model msg
+updateLanguageList languages model =
+    { model | languages = languages }
 
-        Just ({ id } as language) ->
-            { languages = languages
-            , focus = focus
-            , toMsg = toMsg
-            , selectLanguage =
-                if id == "jp" then
-                    Japanese
 
-                else if id == "en" then
-                    English
+updateLanguage : Language -> Model msg -> Model msg
+updateLanguage ({ id } as language) model =
+    { model
+        | selectLanguage =
+            if id == "jp" then
+                Japanese
 
-                else
-                    Other
-            , languageDropdown =
-                if id == "jp" then
-                    Closed
+            else if id == "en" then
+                English
 
-                else if id == "en" then
-                    Closed
+            else
+                Other
+        , languageDropdown =
+            if id == "jp" then
+                Closed
 
-                else
-                    Set language
-            }
+            else if id == "en" then
+                Closed
+
+            else
+                Set language
+    }
 
 
 type SelectLanguage
@@ -209,22 +204,25 @@ subscriptions model =
 
 
 view : Model msg -> Element msg
-view { languageDropdown, selectLanguage, languages, toMsg } =
-    Input.radioRow [ El.spacing 30 ]
+view { languageDropdown, selectLanguage, languages, toMsg, labelText } =
+    let
+        label txt =
+            El.text txt
+                |> El.el [ El.centerY, El.centerX ]
+                |> El.el [ height 42, width 60 ]
+    in
+    Input.radioRow [ El.spacing 30, Font.size 18 ]
         { onChange = InputLanguage >> toMsg
         , label =
-            Input.labelLeft [ El.paddingEach { top = 0, bottom = 0, left = 0, right = 30 } ]
-                (El.text "Original Language"
-                    |> El.el [ El.padding 10, El.centerY ]
-                    |> El.el
-                        [ Background.color Style.nightBlue
-                        , height 42
-                        ]
+            Input.labelLeft [ El.paddingEach { top = 0, bottom = 0, left = 0, right = 20 } ]
+                (El.text labelText
+                    |> El.el [ El.padding 10, El.centerY, Font.size 18 ]
+                    |> El.el [ Background.color Style.nightBlue, height 42, width 200 ]
                 )
         , selected = Just selectLanguage
         , options =
-            [ Input.option Japanese (El.text "Japanese" |> El.el [ El.centerY ] |> El.el [ height 42 ])
-            , Input.option English (El.text "English" |> El.el [ El.centerY ] |> El.el [ height 42 ])
+            [ Input.option Japanese (label "Japanese")
+            , Input.option English (label "English")
             , Input.option Other (viewLanguageDropdown toMsg languageDropdown languages)
             ]
         }
@@ -271,6 +269,7 @@ viewLanguageDropdown toMsg dropdown languages =
         ([ width 280
          , Border.width 2
          , Border.color Style.nightBlue
+         , Border.rounded 0
          ]
             ++ (case dropdown of
                     Open ({ text, selectedLanguage } as info) ->
