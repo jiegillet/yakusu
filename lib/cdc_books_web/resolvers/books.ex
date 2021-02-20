@@ -39,6 +39,17 @@ defmodule CdcBooksWeb.Resolvers.Books do
     {:ok, Books.list_book_translations(book)}
   end
 
+  def list_page_translations(%TranslationBook{} = translation_book, _args, _resolution) do
+    book = Books.get_book(translation_book.book_id)
+    pages = Books.list_pages(book)
+
+    {:ok,
+     pages
+     |> Enum.map(fn page ->
+       %{page: page, translations: Books.list_translations(page, translation_book)}
+     end)}
+  end
+
   def list_translations(%TranslationBook{} = book, _args, _resolution) do
     {:ok, Books.list_translations(book)}
   end

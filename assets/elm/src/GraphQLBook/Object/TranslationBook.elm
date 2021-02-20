@@ -48,6 +48,13 @@ notes =
     Object.selectionForField "String" "notes" [] Decode.string
 
 
+pageTranslations :
+    SelectionSet decodesTo GraphQLBook.Object.TranslationPage
+    -> SelectionSet (List decodesTo) GraphQLBook.Object.TranslationBook
+pageTranslations object_ =
+    Object.selectionForCompositeField "pageTranslations" [] object_ (identity >> Decode.list)
+
+
 title : SelectionSet String GraphQLBook.Object.TranslationBook
 title =
     Object.selectionForField "String" "title" [] Decode.string

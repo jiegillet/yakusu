@@ -27,3 +27,7 @@ type Translation
 
 type TranslationBook
     = TranslationBook
+
+
+type TranslationPage
+    = TranslationPage

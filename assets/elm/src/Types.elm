@@ -29,7 +29,7 @@ type alias Book =
     , author : String
     , language : Language
     , category : Category
-    , translations : List BookTranslation
+    , translations : List TranslationBook
     , pages : Dict String Page
     }
 
@@ -42,7 +42,7 @@ type alias Language =
     { id : String, language : String }
 
 
-type alias BookTranslation =
+type alias TranslationBook =
     { id : String
     , title : String
     , author : String
@@ -83,13 +83,13 @@ bookSelection =
         GBook.author
         (GBook.language languageSelection)
         (GBook.category categorySelection)
-        (GBook.bookTranslations bookTranslationSelection)
+        (GBook.bookTranslations translationBookSelection)
         (SelectionSet.map toDict (GBook.pages pageSelection))
 
 
-bookTranslationSelection : SelectionSet BookTranslation GraphQLBook.Object.TranslationBook
-bookTranslationSelection =
-    SelectionSet.map7 BookTranslation
+translationBookSelection : SelectionSet TranslationBook GraphQLBook.Object.TranslationBook
+translationBookSelection =
+    SelectionSet.map7 TranslationBook
         (SelectionSet.map idToString TBook.id)
         TBook.title
         TBook.author

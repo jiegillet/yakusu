@@ -49,6 +49,16 @@ defmodule CdcBooksWeb.Schema.BooksTypes do
     field :translations, non_null(list_of(non_null(:translation))) do
       resolve(&Resolvers.Books.list_translations/3)
     end
+
+    field :page_translations, non_null(list_of(non_null(:translation_page))) do
+      resolve(&Resolvers.Books.list_page_translations/3)
+    end
+  end
+
+  @desc "List of translations per page for a particular translation book"
+  object :translation_page do
+    field :page, non_null(:page)
+    field :translations, non_null(list_of(non_null(:translation)))
   end
 
   @desc "A page withing a book"

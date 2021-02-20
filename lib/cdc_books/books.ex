@@ -238,6 +238,14 @@ defmodule CdcBooks.Books do
     |> Repo.all()
   end
 
+  def list_translations(%Page{} = page, %TranslationBook{} = translation_book) do
+    from(t in Translation,
+      where: t.translation_book_id == ^translation_book.id and t.page_id == ^page.id,
+      order_by: t.inserted_at
+    )
+    |> Repo.all()
+  end
+
   @doc """
   Gets a single translation.
 
