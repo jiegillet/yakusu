@@ -10,7 +10,7 @@ import Element.Events
 import Element.Font as Font
 import Element.Input as Input exposing (OptionState(..))
 import GraphQLBook.Mutation as Mutation
-import GraphQLBook.Object exposing (TranslationBook)
+import GraphQLBook.Object exposing (Translation, TranslationBook)
 import GraphQLBook.Object.Book as GBook
 import GraphQLBook.Object.Page as GPage
 import GraphQLBook.Object.Translation as GTranslation
@@ -244,9 +244,13 @@ mapToPages f =
         |> RemoteData.map
 
 
-mapCurrent : (a -> a) -> ZipList a -> ZipList a
-mapCurrent f ziplist =
-    ZipList.replace (f (ZipList.current ziplist)) ziplist
+mapCurrentTranslations : (List Translation -> List Translation) -> ZipList Page -> ZipList Page
+mapCurrentTranslations f ziplist =
+    let
+        transform page =
+            { page | translations = f page.translations }
+    in
+    ZipList.replace (transform (ZipList.current ziplist)) ziplist
 
 
 type Action
@@ -410,7 +414,7 @@ update msg model =
                         ( clickedModel, Cmd.none )
 
                     else
-                        saveTranslationAndDo model (EditOtherTranslation translation)
+                        saveTranslationAndDo clickedModel (EditOtherTranslation translation)
 
                 ReadTranslations trBookId ->
                     ( { clickedModel | mode = EditTranslation trBookId translation, text = text, path = path }
@@ -445,10 +449,7 @@ update msg model =
                     , deleteTranslation model.cred
                         id
                         (GotTranslationChange (always (ReadTranslations trBookId))
-                            (\tran ->
-                                mapCurrent
-                                    (\page -> { page | translations = List.filter ((/=) tran) page.translations })
-                            )
+                            (\tran -> mapCurrentTranslations (List.filter ((/=) tran)))
                         )
                     )
 
@@ -497,11 +498,23 @@ update msg model =
         GotTranslationChange toMode pagesUpdate result ->
             case result of
                 Success (Just translation) ->
+                    let
+                        mode =
+                            toMode translation
+
+                        ( text, path ) =
+                            case mode of
+                                EditTranslation _ trans ->
+                                    ( trans.text, trans.path )
+
+                                _ ->
+                                    ( "", "" )
+                    in
                     ( { model
                         | translationBook = mapToPages (pagesUpdate translation) model.translationBook
-                        , text = ""
-                        , path = ""
-                        , mode = toMode translation
+                        , text = text
+                        , path = path
+                        , mode = mode
                       }
                     , Cmd.none
                     )
@@ -572,35 +585,24 @@ saveTranslationAndDo model action =
             ( model, Route.replaceUrl model.context.key (Route.BookDetail model.bookId False) )
 
         ( EditTranslation trBookId translation, _ ) ->
-            ( model
-            , Cmd.batch
-                (mutateTranslation model.cred
-                    trBookId
-                    { translation | text = model.text, path = model.path }
-                    (case ( translation.id, action ) of
+            let
+                message =
+                    case ( translation.id, action ) of
                         ( Nothing, _ ) ->
                             GotTranslationChange (EditTranslation trBookId)
-                                (\tran ->
-                                    mapCurrent
-                                        (\page -> { page | translations = page.translations ++ [ tran ] })
-                                        >> move
-                                )
+                                (\tran -> mapCurrentTranslations (\t -> t ++ [ tran ]) >> move)
 
                         ( Just _, EditOtherTranslation otherTranslation ) ->
                             GotTranslationChange (always (EditTranslation trBookId otherTranslation))
-                                (\tran ->
-                                    mapCurrent
-                                        (\page -> { page | translations = List.map (replace tran) page.translations })
-                                )
+                                (\tran -> mapCurrentTranslations (List.map (replace tran)))
 
                         ( Just _, _ ) ->
                             GotTranslationChange (always (ReadTranslations trBookId))
-                                (\tran ->
-                                    mapCurrent
-                                        (\page -> { page | translations = List.map (replace tran) page.translations })
-                                        >> move
-                                )
-                    )
+                                (\tran -> mapCurrentTranslations (List.map (replace tran)) >> move)
+            in
+            ( model
+            , Cmd.batch
+                (mutateTranslation model.cred trBookId { translation | text = model.text, path = model.path } message
                     :: backToBookDetail
                 )
             )
@@ -663,27 +665,32 @@ subscriptions model =
     case model.drawingState of
         Drawing _ ->
             Sub.batch
-                [ Browser.Events.onMouseMove (Decode.map2 Drew decodeButtons decodePosition)
+                [ Browser.Events.onMouseMove
+                    (Decode.map2 Drew decodeButtons (decodePosition model.context.windowWidth))
                 , Browser.Events.onMouseUp (Decode.succeed StoppedDrawing)
                 ]
 
         NotDrawing ->
-            case ( model.mode, model.notesInputState ) of
-                ( CreateTranslationBook, Inactive ) ->
+            let
+                language =
                     LanguageSelect.subscriptions model.language
 
-                ( _, Inactive ) ->
-                    Sub.batch
-                        [ Browser.Events.onKeyDown (Decode.map PressedKey keyDecoder)
-                        , Browser.Events.onClick (Decode.succeed ClickedSomewhereOnPage)
-                        , LanguageSelect.subscriptions model.language
-                        ]
+                arrows =
+                    if model.notesInputState == Inactive && model.editModeState == Inactive then
+                        [ Browser.Events.onKeyDown (Decode.map PressedKey keyDecoder) ]
 
-                ( _, _ ) ->
-                    Sub.batch
-                        [ Browser.Events.onClick (Decode.succeed ClickedSomewhereOnPage)
-                        , LanguageSelect.subscriptions model.language
-                        ]
+                    else
+                        []
+
+                clicks =
+                    case model.mode of
+                        CreateTranslationBook ->
+                            []
+
+                        _ ->
+                            [ Browser.Events.onClick (Decode.succeed ClickedSomewhereOnPage) ]
+            in
+            Sub.batch (language :: arrows ++ clicks)
 
 
 decodeButtons : Decoder Bool
@@ -691,11 +698,11 @@ decodeButtons =
     Decode.field "buttons" (Decode.map (\buttons -> buttons == 1) Decode.int)
 
 
-decodePosition : Decoder Position
-decodePosition =
+decodePosition : Int -> Decoder Position
+decodePosition width =
     let
         offset =
-            { x = 240, y = 200 }
+            { x = (width - 1000) // 2, y = 200 }
     in
     Decode.map2 Position
         (Decode.field "pageX" Decode.int |> Decode.map (\n -> n - offset.x))
