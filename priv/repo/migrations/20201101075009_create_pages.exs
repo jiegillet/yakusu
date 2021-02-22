@@ -1,4 +1,4 @@
-defmodule CdcBooks.Repo.Migrations.CreatePages do
+defmodule Yakusu.Repo.Migrations.CreatePages do
   use Ecto.Migration
 
   def change do

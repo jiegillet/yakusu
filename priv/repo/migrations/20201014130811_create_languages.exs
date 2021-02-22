@@ -1,4 +1,4 @@
-defmodule CdcBooks.Repo.Migrations.CreateLanguages do
+defmodule Yakusu.Repo.Migrations.CreateLanguages do
   use Ecto.Migration
 
   def change do

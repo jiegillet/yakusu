@@ -1,6 +1,6 @@
-defmodule CdcBooks do
+defmodule Yakusu do
   @moduledoc """
-  CdcBooks keeps the contexts that define your domain
+  Yakusu keeps the contexts that define your domain
   and business logic.
 
   Contexts are also responsible for managing your data, regardless

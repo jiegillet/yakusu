@@ -1,4 +1,4 @@
-# CdcBooks
+# Yakusu
 
 To start your Phoenix server:
 

@@ -1,9 +1,9 @@
-defmodule CdcBooks.MixProject do
+defmodule Yakusu.MixProject do
   use Mix.Project
 
   def project do
     [
-      app: :cdc_books,
+      app: :yakusu,
       version: "0.1.0",
       elixir: "~> 1.7",
       elixirc_paths: elixirc_paths(Mix.env()),
@@ -19,7 +19,7 @@ defmodule CdcBooks.MixProject do
   # Type `mix help compile.app` for more information.
   def application do
     [
-      mod: {CdcBooks.Application, []},
+      mod: {Yakusu.Application, []},
       extra_applications: [:logger, :runtime_tools]
     ]
   end

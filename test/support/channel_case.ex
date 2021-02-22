@@ -1,4 +1,4 @@
-defmodule CdcBooksWeb.ChannelCase do
+defmodule YakusuWeb.ChannelCase do
   @moduledoc """
   This module defines the test case to be used by
   channel tests.
@@ -11,7 +11,7 @@ defmodule CdcBooksWeb.ChannelCase do
   we enable the SQL sandbox, so changes done to the database
   are reverted at the end of every test. If you are using
   PostgreSQL, you can even run database tests asynchronously
-  by setting `use CdcBooksWeb.ChannelCase, async: true`, although
+  by setting `use YakusuWeb.ChannelCase, async: true`, although
   this option is not recommended for other databases.
   """
 
@@ -21,18 +21,18 @@ defmodule CdcBooksWeb.ChannelCase do
     quote do
       # Import conveniences for testing with channels
       import Phoenix.ChannelTest
-      import CdcBooksWeb.ChannelCase
+      import YakusuWeb.ChannelCase
 
       # The default endpoint for testing
-      @endpoint CdcBooksWeb.Endpoint
+      @endpoint YakusuWeb.Endpoint
     end
   end
 
   setup tags do
-    :ok = Ecto.Adapters.SQL.Sandbox.checkout(CdcBooks.Repo)
+    :ok = Ecto.Adapters.SQL.Sandbox.checkout(Yakusu.Repo)
 
     unless tags[:async] do
-      Ecto.Adapters.SQL.Sandbox.mode(CdcBooks.Repo, {:shared, self()})
+      Ecto.Adapters.SQL.Sandbox.mode(Yakusu.Repo, {:shared, self()})
     end
 
     :ok

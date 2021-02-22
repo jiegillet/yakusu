@@ -1,10 +1,10 @@
 use Mix.Config
 
 # Configure your database
-config :cdc_books, CdcBooks.Repo,
+config :yakusu, Yakusu.Repo,
   username: "postgres",
   password: "postgres",
-  database: "cdc_books_dev",
+  database: "yakusu_dev",
   hostname: "localhost",
   show_sensitive_data_on_connection_error: true,
   pool_size: 10
@@ -15,7 +15,7 @@ config :cdc_books, CdcBooks.Repo,
 # The watchers configuration can be used to run external
 # watchers to your application. For example, we use it
 # with webpack to recompile .js and .css sources.
-config :cdc_books, CdcBooksWeb.Endpoint,
+config :yakusu, YakusuWeb.Endpoint,
   http: [port: 4000],
   url: [host: "b-mo.local", path: "/"],
   debug_errors: true,
@@ -56,13 +56,13 @@ config :cdc_books, CdcBooksWeb.Endpoint,
 # different ports.
 
 # Watch static and templates for browser reloading.
-config :cdc_books, CdcBooksWeb.Endpoint,
+config :yakusu, YakusuWeb.Endpoint,
   live_reload: [
     patterns: [
       ~r"priv/static/.*(js|css|png|jpeg|jpg|gif|svg)$",
       ~r"priv/gettext/.*(po)$",
-      ~r"lib/cdc_books_web/(live|views)/.*(ex)$",
-      ~r"lib/cdc_books_web/templates/.*(eex)$"
+      ~r"lib/yakusu_web/(live|views)/.*(ex)$",
+      ~r"lib/yakusu_web/templates/.*(eex)$"
     ]
   ]
 
