@@ -49,7 +49,7 @@ updateLanguage : Language -> Model msg -> Model msg
 updateLanguage ({ id } as language) model =
     { model
         | selectLanguage =
-            if id == "jp" then
+            if id == "ja" then
                 Japanese
 
             else if id == "en" then
@@ -58,7 +58,7 @@ updateLanguage ({ id } as language) model =
             else
                 Other
         , languageDropdown =
-            if id == "jp" then
+            if id == "ja" then
                 Closed
 
             else if id == "en" then
@@ -105,7 +105,7 @@ getLanguage { selectLanguage, languageDropdown } =
             Just (Language "en" "English")
 
         ( Japanese, _ ) ->
-            Just (Language "jp" "Japanese")
+            Just (Language "ja" "Japanese")
 
         _ ->
             Nothing
