@@ -11,12 +11,12 @@ import Element.Font as Font
 import Html exposing (Html)
 import Json.Encode exposing (Value)
 import Page.AddBook as AddBook
-import Page.AddTranslation as AddTranslation
 import Page.Blank as Blank
 import Page.BookDetail as BookDetail
 import Page.Books as Books
 import Page.Login as Login
 import Page.NotFound as NotFound
+import Page.Translation as Translation
 import Route exposing (Route(..))
 import Task
 import Url exposing (Url)
@@ -40,7 +40,7 @@ type Model
     | Books Books.Model
     | AddBook AddBook.Model
     | BookDetail BookDetail.Model
-    | AddTranslation AddTranslation.Model
+    | Translation Translation.Model
     | Login Login.Model
 
 
@@ -72,7 +72,7 @@ getContext model =
         BookDetail { context } ->
             context
 
-        AddTranslation { context } ->
+        Translation { context } ->
             context
 
         Login { context } ->
@@ -97,8 +97,8 @@ updateContext updtateContext model =
         BookDetail subModel ->
             BookDetail { subModel | context = updtateContext subModel.context }
 
-        AddTranslation subModel ->
-            AddTranslation { subModel | context = updtateContext subModel.context }
+        Translation subModel ->
+            Translation { subModel | context = updtateContext subModel.context }
 
         Login subModel ->
             Login { subModel | context = updtateContext subModel.context }
@@ -119,7 +119,7 @@ type Msg
     | GotBooksMsg Books.Msg
     | GotAddBookMsg AddBook.Msg
     | GotBookDetailMsg BookDetail.Msg
-    | GotAddTranslationMsg AddTranslation.Msg
+    | GotTranslationMsg Translation.Msg
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -178,9 +178,9 @@ update msg model =
             BookDetail.update subMsg subModel
                 |> updateWith BookDetail GotBookDetailMsg
 
-        ( GotAddTranslationMsg subMsg, AddTranslation subModel ) ->
-            AddTranslation.update subMsg subModel
-                |> updateWith AddTranslation GotAddTranslationMsg
+        ( GotTranslationMsg subMsg, Translation subModel ) ->
+            Translation.update subMsg subModel
+                |> updateWith Translation GotTranslationMsg
 
         ( GotLoginMsg subMsg, Login subModel ) ->
             Login.update subMsg subModel
@@ -233,12 +233,12 @@ changeRouteTo maybeRoute model =
                         |> updateWith BookDetail GotBookDetailMsg
 
                 Just (Route.AddTranslation bookId) ->
-                    AddTranslation.init context cred bookId Nothing
-                        |> updateWith AddTranslation GotAddTranslationMsg
+                    Translation.init context cred bookId Nothing
+                        |> updateWith Translation GotTranslationMsg
 
                 Just (Route.EditTranslation bookId trBookId) ->
-                    AddTranslation.init context cred bookId (Just trBookId)
-                        |> updateWith AddTranslation GotAddTranslationMsg
+                    Translation.init context cred bookId (Just trBookId)
+                        |> updateWith Translation GotTranslationMsg
 
                 Just Route.Login ->
                     Login.init (Just Route.Books) context
@@ -262,8 +262,8 @@ subscriptions model =
 
         special =
             case model of
-                AddTranslation subModel ->
-                    [ Sub.map GotAddTranslationMsg (AddTranslation.subscriptions subModel) ]
+                Translation subModel ->
+                    [ Sub.map GotTranslationMsg (Translation.subscriptions subModel) ]
 
                 Login subModel ->
                     [ Sub.map GotLoginMsg (Login.subscriptions subModel) ]
@@ -314,8 +314,8 @@ view model =
         BookDetail subModel ->
             viewPageWith GotBookDetailMsg (BookDetail.view subModel)
 
-        AddTranslation subModel ->
-            viewPageWith GotAddTranslationMsg (AddTranslation.view subModel)
+        Translation subModel ->
+            viewPageWith GotTranslationMsg (Translation.view subModel)
 
         Login subModel ->
             viewPageWith GotLoginMsg (Login.view subModel)

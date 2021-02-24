@@ -1,4 +1,4 @@
-module Page.AddTranslation exposing (Model, Msg, init, subscriptions, update, view)
+module Page.Translation exposing (Model, Msg, init, subscriptions, update, view)
 
 import Api exposing (Cred, GraphQLData)
 import Browser.Events
@@ -792,10 +792,10 @@ viewForm { title, author, language, translator, notes, mode } originalTitle orig
                 , El.column [ El.spacing 20 ]
                     [ El.column [ El.spacing 20, Border.width 2, Border.color Style.nightBlue, El.padding 20, width 1000 ]
                         [ explanation
-                        , El.row [ width 470, El.height El.fill, Background.color Style.grey, El.padding 5, El.spacing 10 ]
+                        , El.row [ width 792, El.height El.fill, Background.color Style.grey, El.padding 5, El.spacing 10 ]
                             [ iconPlaceholder
                             , El.el [ El.centerY, Font.size 20 ]
-                                (String.concat [ originalTitle, ", by ", originalAuthor ] |> El.text)
+                                (String.concat [ "\"", originalTitle, "\", by \"", originalAuthor, "\"" ] |> El.text)
                             ]
                         , LanguageSelect.view language
                             |> El.el [ El.paddingEach { left = 40, right = 0, top = 0, bottom = 0 } ]
@@ -1158,7 +1158,7 @@ viewTranslation mode text color translation =
         , case mode of
             EditTranslation _ trans ->
                 if trans == translation then
-                    Input.multiline [ El.padding 10, Border.width 0, El.spacing 1 ]
+                    Input.multiline [ El.padding 10, Border.width 0, El.spacing 3 ]
                         { onChange = InputText
                         , text = text
                         , placeholder = Just (Input.placeholder [] (El.text "Add translation here..."))
@@ -1170,7 +1170,19 @@ viewTranslation mode text color translation =
                     El.el [ El.padding 10 ] (El.text translation.text)
 
             _ ->
-                El.el [ El.padding 10 ] (El.text translation.text)
+                translation.text
+                    |> String.split "\n"
+                    |> List.map
+                        (\line ->
+                            case line of
+                                -- This is needed because empty lines are not respected otherwise
+                                "" ->
+                                    El.el [ El.paddingXY 10 0 ] (El.text " ")
+
+                                _ ->
+                                    El.paragraph [ El.paddingXY 10 0, El.spacing 3 ] [ El.text line ]
+                        )
+                    |> El.column [ El.paddingXY 0 10, El.spacing 2, El.width El.fill ]
         ]
 
 
@@ -1187,7 +1199,7 @@ viewNotes notes =
         { onChange = InputNotes
         , text = notes
         , placeholder =
-            El.text "Use this field freely for notes, copy/pasting... To save and share the content, you must return to page 0 and click save."
+            El.text "Use this field freely for notes, copy/pasting...\n To save and share notes, go to page 0 and click \"Save\"."
                 |> Input.placeholder []
                 |> Just
         , label = Input.labelHidden "Enter notes"
