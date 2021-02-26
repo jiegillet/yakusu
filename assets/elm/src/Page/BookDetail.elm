@@ -1,14 +1,15 @@
 module Page.BookDetail exposing (Model, Msg, init, update, view)
 
-import Api exposing (Cred)
+import Api exposing (Cred, GraphQLData)
 import Common exposing (Context, height, width)
 import Element as El exposing (Element)
 import Element.Background as Background
 import Element.Border as Border
 import Element.Font as Font
+import Element.Input as Input
+import File.Download
 import GraphQLBook.Query as Query
 import GraphQLBook.Scalar exposing (Id(..))
-import Graphql.Http exposing (Error)
 import Graphql.Operation exposing (RootQuery)
 import Graphql.SelectionSet exposing (SelectionSet)
 import Page.Books exposing (Book, BookTranslation)
@@ -18,6 +19,7 @@ import Style
 
 
 
+-- import Types exposing (TranslationBook)
 -- TYPES
 
 
@@ -25,7 +27,7 @@ type alias Model =
     { context : Context
     , cred : Cred
     , bookId : String
-    , book : RemoteData (Error (Maybe Book)) (Maybe Book)
+    , book : GraphQLData (Maybe Book)
     , welcomeText : String
     }
 
@@ -52,7 +54,9 @@ init context cred bookId isNew =
 
 
 type Msg
-    = GotBook (RemoteData (Error (Maybe Book)) (Maybe Book))
+    = GotBook (GraphQLData (Maybe Book))
+    | GotExport BookTranslation String (GraphQLData String)
+    | ClickedExport BookTranslation String
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -60,6 +64,26 @@ update msg model =
     case msg of
         GotBook result ->
             ( { model | book = result }, Cmd.none )
+
+        ClickedExport book title ->
+            ( model, exportBook model.cred book title )
+
+        GotExport { language } title result ->
+            case result of
+                Success export ->
+                    let
+                        filename =
+                            String.concat
+                                [ title
+                                , "("
+                                , language.language
+                                , " version)"
+                                ]
+                    in
+                    ( model, File.Download.string filename "text/plain" export )
+
+                _ ->
+                    ( model, Cmd.none )
 
 
 
@@ -112,7 +136,7 @@ view model =
                     [ back
                     , El.el [ Font.size 24, El.paddingXY 40 30 ] (El.text model.welcomeText)
                     , viewBook book
-                    , viewTranslations book.translations book.id
+                    , viewTranslations book.translations book.id book.title
                     , addMore
                     , backRight
                     ]
@@ -157,13 +181,12 @@ viewBook { id, title, author, language, category, numPages } =
         ]
 
 
-viewTranslations : List BookTranslation -> String -> Element msg
-viewTranslations books bookId =
+viewTranslations : List BookTranslation -> String -> String -> Element Msg
+viewTranslations books bookId bookTitle =
     let
         addTranslation =
             Route.link (Route.AddTranslation bookId)
-                [ Font.color Style.black
-                , Border.color Style.nightBlue
+                [ Border.color Style.nightBlue
                 , Border.width 2
                 , El.alignRight
                 , width 220
@@ -173,6 +196,20 @@ viewTranslations books bookId =
                 (El.row [ El.height El.fill, El.paddingXY 5 0 ]
                     [ iconPlaceholder, El.text "Add Translation" |> El.el [ El.centerY, El.paddingXY 5 0, width 180 ] ]
                 )
+
+        export book =
+            Input.button
+                [ Border.color Style.nightBlue
+                , Border.width 2
+                , El.alignRight
+                , Font.size 20
+                , El.height El.fill
+                ]
+                { onPress = Just (ClickedExport book bookTitle)
+                , label =
+                    El.row [ El.height El.fill, El.paddingXY 5 0 ]
+                        [ iconPlaceholder, El.text "Export" |> El.el [ El.centerY, El.paddingXY 10 0 ] ]
+                }
     in
     El.column [ El.spacing 20 ]
         (El.row [ Font.size 20, El.spacing 20, height 45 ]
@@ -181,10 +218,11 @@ viewTranslations books bookId =
             , addTranslation
             ]
             :: List.map
-                (\{ id, language, title } ->
+                (\({ id, language, title } as trBook) ->
                     El.row []
                         [ Route.link (Route.EditTranslation bookId id) [] iconPlaceholder
                         , viewField 5 language.language title
+                        , export trBook
                         ]
                 )
                 books
@@ -195,7 +233,7 @@ viewField : Int -> String -> String -> Element msg
 viewField offset description value =
     El.row
         [ El.paddingEach { top = 0, left = offset, right = 0, bottom = 0 }
-        , width 160
+        , width 455
         , El.spacing 20
         , Font.size 18
         ]
@@ -216,3 +254,8 @@ bookQuery bookId =
 requestBook : Cred -> String -> Cmd Msg
 requestBook cred bookId =
     Api.queryRequest cred (bookQuery bookId) GotBook
+
+
+exportBook : Cred -> BookTranslation -> String -> Cmd Msg
+exportBook cred ({ id } as translation) bookTitle =
+    Api.queryRequest cred (Query.renderBook { id = Id id, maxCharacters = 800 }) (GotExport translation bookTitle)

@@ -60,6 +60,21 @@ languages object_ =
     Object.selectionForCompositeField "languages" [] object_ (identity >> Decode.list)
 
 
+type alias RenderBookRequiredArguments =
+    { id : GraphQLBook.ScalarCodecs.Id
+    , maxCharacters : Int
+    }
+
+
+{-| Export a rendered translation book
+-}
+renderBook :
+    RenderBookRequiredArguments
+    -> SelectionSet String RootQuery
+renderBook requiredArgs =
+    Object.selectionForField "String" "renderBook" [ Argument.required "id" requiredArgs.id (GraphQLBook.ScalarCodecs.codecs |> GraphQLBook.Scalar.unwrapEncoder .codecId), Argument.required "maxCharacters" requiredArgs.maxCharacters Encode.int ] Decode.string
+
+
 type alias TranslationBookRequiredArguments =
     { id : GraphQLBook.ScalarCodecs.Id }
 

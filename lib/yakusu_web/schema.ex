@@ -24,6 +24,13 @@ defmodule YakusuWeb.Schema do
       resolve(&Resolvers.Books.find_translation_book/3)
     end
 
+    @desc "Export a rendered translation book"
+    field :render_book, non_null(:string) do
+      arg(:id, non_null(:id))
+      arg(:max_characters, non_null(:integer))
+      resolve(&Resolvers.Books.render_translation_book/3)
+    end
+
     @desc "Get all categories"
     field :categories, non_null(list_of(non_null(:category))) do
       resolve(&Resolvers.Books.list_categories/3)

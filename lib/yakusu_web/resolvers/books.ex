@@ -86,6 +86,20 @@ defmodule YakusuWeb.Resolvers.Books do
     |> Books.delete_translation_book()
   end
 
+  def render_translation_book(
+        _parent,
+        %{id: book_id, max_characters: max_characters},
+        _resolution
+      ) do
+    book = Books.get_translation_book!(book_id)
+
+    {:ok,
+     YakusuWeb.Books.TranslationBookView.render("book.txt", %{
+       translation_book: book,
+       max_characters: max_characters
+     })}
+  end
+
   def create_translation(_parent, %{translation: %{id: id} = args}, _resolution) do
     Books.get_translation!(id)
     |> Books.update_translation(args)
