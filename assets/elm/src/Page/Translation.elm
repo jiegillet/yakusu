@@ -26,6 +26,7 @@ import Html.Attributes as Attributes
 import Json.Decode as Decode exposing (Decoder)
 import LanguageSelect
 import List.Extra as List
+import Maybe.Extra as Maybe
 import RemoteData exposing (RemoteData(..))
 import Route exposing (Route(..))
 import Style
@@ -76,7 +77,7 @@ init context cred bookId translationBookId =
                     { book = Loading
                     , translationBook = NotAsked
                     , cmd = [ getBook cred bookId ]
-                    , button = "Add Translation"
+                    , button = "Create Translation"
                     , mode = CreateTranslationBook
                     }
 
@@ -139,6 +140,17 @@ type alias TranslationBook =
     , translator : String
     , notes : String
     , pages : ZipList Page
+    }
+
+
+type alias ValidTranslationBook =
+    { id : Maybe String
+    , bookId : String
+    , title : String
+    , author : String
+    , language : Language
+    , translator : String
+    , notes : String
     }
 
 
@@ -523,19 +535,32 @@ update msg model =
                     ( model, Cmd.none )
 
 
+validTranslationBook : Model -> Maybe ValidTranslationBook
+validTranslationBook { language, bookId, translationBookId, title, author, translator, notes } =
+    let
+        nonEmpty string =
+            case string of
+                "" ->
+                    Nothing
+
+                _ ->
+                    Just string
+    in
+    Just (ValidTranslationBook translationBookId)
+        |> Maybe.andMap (Just bookId)
+        |> Maybe.andMap (nonEmpty title)
+        |> Maybe.andMap (nonEmpty author)
+        |> Maybe.andMap (LanguageSelect.getLanguage language)
+        |> Maybe.andMap (nonEmpty translator)
+        |> Maybe.andMap (Just notes)
+
+
 saveTranslationBookFromModel : Model -> Cmd Msg
 saveTranslationBookFromModel model =
     -- TODO Full check: non-empty title author translator
-    case LanguageSelect.getLanguage model.language of
-        Just language ->
-            saveTranslationBook model.cred
-                (Id model.bookId)
-                model.translationBookId
-                model.title
-                model.author
-                language
-                model.translator
-                model.notes
+    case validTranslationBook model of
+        Just translationBook ->
+            saveTranslationBook model.cred translationBook
 
         _ ->
             Cmd.none
@@ -718,32 +743,27 @@ view : Model -> { title : String, body : Element Msg }
 view model =
     { title = "Book Translation"
     , body =
-        case model.languages of
-            Success _ ->
-                case ( model.mode, model.translationBook, model.book ) of
-                    ( CreateTranslationBook, _, Success (Just book) ) ->
-                        viewForm model book.title book.author
+        case ( model.mode, model.translationBook, model.book ) of
+            ( CreateTranslationBook, _, Success (Just book) ) ->
+                viewForm model book.title book.author
 
-                    ( CreateTranslationBook, _, _ ) ->
-                        El.text ("There was an issue retrieving the original book with id: " ++ model.bookId)
+            ( CreateTranslationBook, _, _ ) ->
+                El.text ("There was an issue retrieving the original book with id: " ++ model.bookId)
 
-                    ( EditTranslationBook _, Success (Just translationBook), _ ) ->
-                        viewForm model translationBook.originalTitle translationBook.originalAuthor
+            ( EditTranslationBook _, Success (Just translationBook), _ ) ->
+                viewForm model translationBook.originalTitle translationBook.originalAuthor
 
-                    ( EditTranslationBook id, _, _ ) ->
-                        El.text ("There was an issue retrieving the translation book with id: " ++ id)
+            ( EditTranslationBook id, _, _ ) ->
+                El.text ("There was an issue retrieving the translation book with id: " ++ id)
 
-                    ( _, Success (Just { pages }), _ ) ->
-                        viewTranslate model pages
+            ( _, Success (Just { pages }), _ ) ->
+                viewTranslate model pages
 
-                    ( ReadTranslations id, _, _ ) ->
-                        El.text ("There was an issue retrieving the translation book with id: " ++ id)
+            ( ReadTranslations id, _, _ ) ->
+                El.text ("There was an issue retrieving the translation book with id: " ++ id)
 
-                    ( EditTranslation id _, _, _ ) ->
-                        El.text ("There was an issue retrieving the translation book with id: " ++ id)
-
-            _ ->
-                El.text "There was an issue retrieving the list of languages"
+            ( EditTranslation id _, _, _ ) ->
+                El.text ("There was an issue retrieving the translation book with id: " ++ id)
     }
 
 
@@ -764,7 +784,7 @@ saveAndReturn save =
 
 
 viewForm : Model -> String -> String -> Element Msg
-viewForm { title, author, language, translator, notes, mode } originalTitle originalAuthor =
+viewForm ({ title, author, language, translator, notes, mode } as model) originalTitle originalAuthor =
     let
         explanation =
             El.row [ Background.color Style.grey, El.width El.fill, height 45, El.spacing 5, Font.size 20 ]
@@ -772,6 +792,26 @@ viewForm { title, author, language, translator, notes, mode } originalTitle orig
                 , El.text "Please fill the following information before starting your translation"
                 ]
                 |> El.el [ El.paddingEach { top = 20, bottom = 30, left = 0, right = 0 }, El.width El.fill ]
+
+        saveButton =
+            Input.button [ El.alignRight, height 25, width 100 ]
+                (case validTranslationBook model of
+                    Nothing ->
+                        { onPress = Nothing
+                        , label =
+                            El.text "Save"
+                                |> El.el [ El.centerX, El.centerY ]
+                                |> El.el [ Background.color Style.grey, El.height El.fill, El.width El.fill ]
+                        }
+
+                    Just _ ->
+                        { onPress = Just ClickedSaveBookInfo
+                        , label =
+                            El.text "Save"
+                                |> El.el [ El.centerX, El.centerY ]
+                                |> El.el [ Background.color Style.nightBlue, El.height El.fill, El.width El.fill ]
+                        }
+                )
     in
     El.column
         [ El.spacing 30
@@ -802,25 +842,20 @@ viewForm { title, author, language, translator, notes, mode } originalTitle orig
                         , viewTextInput title "Translated Title" InputTitle
                         , viewTextInput author "Translated Author(s)" InputAuthor
                         , viewTextInput translator "Name of Translator(s)" InputTranslator
-                        , Input.button [ El.alignRight, height 25, width 100 ]
-                            { onPress = Just ClickedSaveBookInfo
-                            , label =
-                                El.text "Save"
-                                    |> El.el [ El.centerX, El.centerY ]
-                                    |> El.el [ Background.color Style.nightBlue, El.height El.fill, El.width El.fill ]
-                            }
+                        , saveButton
                         ]
                     ]
 
                 -- Arrow on the right
                 , (case mode of
                     EditTranslationBook _ ->
-                        El.el [ El.alignRight, Element.Events.onClick ClickedSaveBookInfo ] iconPlaceholder
+                        El.el [ El.alignRight, El.alignBottom, Element.Events.onClick ClickedSaveBookInfo ]
+                            iconPlaceholder
 
                     _ ->
                         El.none
                   )
-                    |> El.el [ width 70 ]
+                    |> El.el [ width 70, height 393, El.alignTop ]
                 ]
 
             -- Notes
@@ -872,7 +907,7 @@ viewTranslate model pages =
                 |> El.el [ width 70, El.centerY ]
 
         explanation =
-            El.row [ width 575, Border.color Style.nightBlue, Border.width 2, Font.color Style.nightBlue ]
+            El.row [ width 575, height 90, Border.color Style.nightBlue, Border.width 2, Font.color Style.nightBlue ]
                 [ iconPlaceholder
                 , El.paragraph [ El.padding 10 ]
                     [ El.text "Mark a section of text on the page by drawing with your mouse or finger" ]
@@ -969,7 +1004,7 @@ yellow =
 
 colors : List Color
 colors =
-    [ Color 230 25 75 0.25, Color 60 180 75 0.25, Color 255 225 25 0.25, Color 0 130 200 0.25, Color 245 130 48 0.25, Color 145 30 180 0.25, Color 70 240 240 0.25, Color 240 50 230 0.25, Color 210 245 60 0.25, Color 250 190 212 0.25, Color 0 128 128 0.25, Color 220 190 255 0.25, Color 170 110 40 0.25, Color 255 250 200 0.25, Color 128 0 0 0.25, Color 170 255 195 0.25, Color 128 128 0 0.25, Color 255 215 180 0.25, Color 0 0 128 0.25, Color 128 128 128 0.25, Color 255 255 255 0.25, Color 0 0 0 0.25 ]
+    [ Color 230 25 75 0.25, Color 60 180 75 0.25, Color 255 225 25 0.25, Color 0 130 200 0.25, Color 245 130 48 0.25, Color 145 30 180 0.25, Color 70 240 240 0.25, Color 240 50 230 0.25, Color 210 245 60 0.25, Color 250 190 212 0.25, Color 0 128 128 0.25, Color 220 190 255 0.25, Color 170 110 40 0.25, Color 255 250 200 0.25, Color 128 0 0 0.25, Color 170 255 195 0.25, Color 128 128 0 0.25, Color 255 215 180 0.25, Color 0 0 128 0.25, Color 128 128 128 0.25, Color 0 0 0 0.25 ]
 
 
 viewPosPath : Color -> List Position -> Svg Msg
@@ -1279,20 +1314,20 @@ getTranslationBook cred id =
     Api.queryRequest cred (Query.translationBook { id = id } translationBookSelection) (GotTranslationBook EditTranslationBook)
 
 
-saveTranslationBook : Cred -> Id -> Maybe String -> String -> String -> Language -> String -> String -> Cmd Msg
-saveTranslationBook cred bookId translationBookid title author language translator notes =
+saveTranslationBook : Cred -> ValidTranslationBook -> Cmd Msg
+saveTranslationBook cred { bookId, id, title, author, language, translator, notes } =
     let
         modifyOptional options =
             { options
                 | notes = Present notes
-                , id = OptionalArgument.fromMaybe (Maybe.map Id translationBookid)
+                , id = OptionalArgument.fromMaybe (Maybe.map Id id)
             }
 
         translationBook =
             Mutation.createTranslationBook modifyOptional
                 { author = author
                 , languageId = language.id
-                , bookId = bookId
+                , bookId = Id bookId
                 , title = title
                 , translator = translator
                 }
