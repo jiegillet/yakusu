@@ -1,4 +1,4 @@
-module Page.Books exposing (Book, BookTranslation, Model, Msg, bookSelection, bookTranslationSelection, init, update, view)
+module Page.Books exposing (Book, BookTranslation, Model, Msg, bookSelection, bookTranslationSelection, init, update, view, viewCategories)
 
 import Api exposing (Cred, GraphQLData)
 import Common exposing (Context, height, width)
@@ -225,7 +225,7 @@ viewCategories checkedCategories categories =
             ]
         , categories
             |> List.map viewCategory
-            |> El.wrappedRow [ El.paddingEach { top = 0, bottom = 0, left = 40, right = 10 }, El.spacing 10 ]
+            |> El.wrappedRow [ El.paddingEach { top = 0, bottom = 0, left = 40, right = 0 }, El.spacing 12 ]
         ]
 
 

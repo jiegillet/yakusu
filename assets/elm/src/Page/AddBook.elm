@@ -545,7 +545,7 @@ viewCategories category categories =
             [ iconPlaceholder, El.text "Select Theme" ]
         , categories
             |> List.map viewCategory
-            |> El.wrappedRow [ El.paddingEach { top = 0, bottom = 0, left = 40, right = 10 }, El.spacing 10 ]
+            |> El.wrappedRow [ El.paddingEach { top = 0, bottom = 0, left = 40, right = 0 }, El.spacing 12 ]
         ]
         |> El.el [ El.paddingEach { top = 5, bottom = 0, left = 0, right = 0 } ]
 
