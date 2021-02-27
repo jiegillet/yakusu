@@ -61,6 +61,7 @@ type alias Model =
     , oldImages : List Image
     , dnd : DnDList.Model
     , crossAnimation : Animation.State
+    , rotateAnimation : Animation.State
     }
 
 
@@ -103,6 +104,9 @@ init context cred bookId =
                 [ Animation.rotate (Animation.deg 0)
                 , Animation.transformOrigin (Animation.percent 50) (Animation.percent 50) (Animation.percent 0)
                 ]
+      , rotateAnimation =
+            Animation.style
+                [ Animation.transformOrigin (Animation.percent 50) (Animation.percent 50) (Animation.percent 0) ]
       }
     , Cmd.batch (getCategories cred :: getlanguages cred :: editParams.cmd)
     )
@@ -266,6 +270,15 @@ update msg model =
                 , previews =
                     model.previews
                         ++ List.map (always emptyImage) filteredFiles
+                , rotateAnimation =
+                    Animation.interrupt
+                        [ Animation.loop
+                            [ Animation.toWith (Animation.speed { perSecond = 0.8 })
+                                [ Animation.rotate (Animation.turn 1) ]
+                            , Animation.set [ Animation.rotate (Animation.turn 0) ]
+                            ]
+                        ]
+                        model.rotateAnimation
               }
             , filteredFiles
                 |> List.indexedMap (\index -> uploadImage model.cred (index + offset))
@@ -275,7 +288,23 @@ update msg model =
         GotCompressedImage result ->
             case result of
                 Success ( index, preview ) ->
-                    ( { model | previews = setAt index preview model.previews }, Cmd.none )
+                    let
+                        previews =
+                            setAt index preview model.previews
+
+                        updateRotation =
+                            if List.any (.preview >> String.isEmpty) previews then
+                                identity
+
+                            else
+                                Animation.interrupt []
+                    in
+                    ( { model
+                        | previews = previews
+                        , rotateAnimation = updateRotation model.rotateAnimation
+                      }
+                    , Cmd.none
+                    )
 
                 _ ->
                     ( model, Cmd.none )
@@ -302,7 +331,12 @@ update msg model =
             )
 
         Animate animMsg ->
-            ( { model | crossAnimation = Animation.update animMsg model.crossAnimation }, Cmd.none )
+            ( { model
+                | crossAnimation = Animation.update animMsg model.crossAnimation
+                , rotateAnimation = Animation.update animMsg model.rotateAnimation
+              }
+            , Cmd.none
+            )
 
         DeleteImage index ->
             let
@@ -371,7 +405,7 @@ subscriptions model =
     Sub.batch
         [ system.subscriptions model.dnd
         , LanguageSelect.subscriptions model.language
-        , Animation.subscription Animate [ model.crossAnimation ]
+        , Animation.subscription Animate [ model.crossAnimation, model.rotateAnimation ]
         ]
 
 
@@ -506,9 +540,9 @@ viewCategories category categories =
         |> El.el [ El.paddingEach { top = 5, bottom = 0, left = 0, right = 0 } ]
 
 
-viewPageDownload : DnDList.Model -> Animation.State -> List Image -> Element Msg
-viewPageDownload dnd crossAnimation images =
-    El.column [ El.spacing 20, El.inFront (ghostView dnd images) ]
+viewPageDownload : DnDList.Model -> Animation.State -> Animation.State -> List Image -> Element Msg
+viewPageDownload dnd crossAnimation rotateAnimation images =
+    El.column [ El.spacing 20, El.inFront (ghostView rotateAnimation dnd images) ]
         [ El.row
             [ Background.color Style.grey
             , width 250
@@ -519,7 +553,7 @@ viewPageDownload dnd crossAnimation images =
             [ iconPlaceholder, El.text "Add Pages" ]
             |> El.el [ El.paddingEach { top = 5, bottom = 0, left = 0, right = 0 } ]
         , El.row [ El.spacing 10 ]
-            [ List.indexedMap (viewPreview dnd) images
+            [ List.indexedMap (viewImage rotateAnimation dnd) images
                 ++ [ viewAddOrDelete dnd crossAnimation ]
                 |> El.wrappedRow
                     [ width 620
@@ -560,8 +594,8 @@ hijack msg =
     ( msg, True )
 
 
-viewPreview : DnDList.Model -> Int -> Image -> Element Msg
-viewPreview dnd index { preview } =
+viewImage : Animation.State -> DnDList.Model -> Int -> Image -> Element Msg
+viewImage rotateAnimation dnd index { preview } =
     let
         itemId : String
         itemId =
@@ -578,29 +612,21 @@ viewPreview dnd index { preview } =
     case system.info dnd of
         Just { dragIndex } ->
             if dragIndex /= index then
-                El.el
-                    (Background.image preview
-                        :: List.map El.htmlAttribute (system.dropEvents index itemId)
-                        ++ baseAttributes
-                    )
-                    El.none
+                viewPreview preview
+                    (List.map El.htmlAttribute (system.dropEvents index itemId) ++ baseAttributes)
+                    rotateAnimation
 
             else
-                El.el
-                    (Background.color Style.nightBlue :: baseAttributes)
-                    El.none
+                El.el (Background.color Style.nightBlue :: baseAttributes) El.none
 
         Nothing ->
-            El.el
-                (Background.image preview
-                    :: baseAttributes
-                    ++ List.map El.htmlAttribute (system.dragEvents index itemId)
-                )
-                El.none
+            viewPreview preview
+                (baseAttributes ++ List.map El.htmlAttribute (system.dragEvents index itemId))
+                rotateAnimation
 
 
-ghostView : DnDList.Model -> List Image -> Element Msg
-ghostView dnd previews =
+ghostView : Animation.State -> DnDList.Model -> List Image -> Element Msg
+ghostView rotateAnimation dnd previews =
     let
         maybeDragItem : Maybe Image
         maybeDragItem =
@@ -609,16 +635,42 @@ ghostView dnd previews =
     in
     case maybeDragItem of
         Just { preview } ->
-            El.el
-                (width 80
-                    :: height 80
-                    :: Background.image preview
-                    :: List.map El.htmlAttribute (system.ghostStyles dnd)
-                )
-                El.none
+            viewPreview preview
+                (width 80 :: height 80 :: List.map El.htmlAttribute (system.ghostStyles dnd))
+                rotateAnimation
 
         Nothing ->
             El.none
+
+
+viewPreview : String -> List (Attribute Msg) -> Animation.State -> Element Msg
+viewPreview preview attrs rotateAnimation =
+    case preview of
+        "" ->
+            Svg.svg
+                (S.width "80"
+                    :: S.height "80"
+                    :: S.viewBox "-40 -40 80 80"
+                    :: S.fill "rgb(61, 152, 255)"
+                    :: Animation.render rotateAnimation
+                )
+                [ List.map
+                    (\i ->
+                        Svg.circle
+                            [ 20 * cos (turns (toFloat i / 7)) |> String.fromFloat |> S.cx
+                            , 20 * sin (turns (toFloat i / 7)) |> String.fromFloat |> S.cy
+                            , S.r "3"
+                            ]
+                            []
+                    )
+                    (List.range 1 7)
+                    |> Svg.g []
+                ]
+                |> El.html
+                |> El.el attrs
+
+        _ ->
+            El.el (Background.image preview :: attrs) El.none
 
 
 viewAddOrDelete : DnDList.Model -> Animation.State -> Element Msg
