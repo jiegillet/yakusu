@@ -62,6 +62,7 @@ type alias Model =
     , dnd : DnDList.Model
     , crossAnimation : Animation.State
     , rotateAnimation : Animation.State
+    , saving : Bool
     }
 
 
@@ -107,6 +108,7 @@ init context cred bookId =
       , rotateAnimation =
             Animation.style
                 [ Animation.transformOrigin (Animation.percent 50) (Animation.percent 50) (Animation.percent 0) ]
+      , saving = False
       }
     , Cmd.batch (getCategories cred :: getlanguages cred :: editParams.cmd)
     )
@@ -347,7 +349,7 @@ update msg model =
 
         -- Saving
         ClickedSave book ->
-            ( model, createBook model.cred book )
+            ( { model | saving = True }, createBook model.cred book )
 
         BookCreated result ->
             case result of
@@ -355,7 +357,7 @@ update msg model =
                     ( model, postPages model.cred bookId model.previews model.oldImages )
 
                 _ ->
-                    ( model, Cmd.none )
+                    ( { model | saving = False }, Cmd.none )
 
         PagesSaved bookId result ->
             case result of
@@ -363,7 +365,7 @@ update msg model =
                     ( model, Route.replaceUrl model.context.key (Route.BookDetail bookId model.editParams.isNew) )
 
                 _ ->
-                    ( model, Cmd.none )
+                    ( { model | saving = False }, Cmd.none )
 
 
 validBook : Model -> Maybe ValidBook
@@ -462,20 +464,20 @@ viewForm ({ title, author, language, category, dnd, previews, crossAnimation, ro
         , viewTextInput author "Author(s)" InputAuthor
         , viewCategories category categories
         , viewPageDownload dnd crossAnimation rotateAnimation previews
-        , case validBook model of
-            Nothing ->
+        , case ( validBook model, model.saving ) of
+            ( Just book, False ) ->
                 Input.button
-                    [ Font.color Style.grey, Border.color Style.grey, Border.width 2, El.alignRight ]
-                    { onPress = Nothing
+                    [ Font.color Style.nightBlue, Border.color Style.nightBlue, Border.width 2, El.alignRight ]
+                    { onPress = Just (ClickedSave book)
                     , label =
                         El.row [ El.paddingXY 10 5, height 40 ]
                             [ El.text editParams.button, iconPlaceholder ]
                     }
 
-            Just book ->
+            _ ->
                 Input.button
-                    [ Font.color Style.nightBlue, Border.color Style.nightBlue, Border.width 2, El.alignRight ]
-                    { onPress = Just (ClickedSave book)
+                    [ Font.color Style.grey, Border.color Style.grey, Border.width 2, El.alignRight ]
+                    { onPress = Nothing
                     , label =
                         El.row [ El.paddingXY 10 5, height 40 ]
                             [ El.text editParams.button, iconPlaceholder ]

@@ -56,6 +56,7 @@ type alias Model =
     , translator : String
     , notes : String
     , languages : GraphQLData (List Language)
+    , saving : Bool
 
     -- Translating
     , drawingState : DrawingState
@@ -102,6 +103,7 @@ init context cred bookId translationBookId =
       , notes = ""
       , languages = Loading
       , mode = editParams.mode
+      , saving = False
 
       -- Translating
       , drawingState = NotDrawing
@@ -324,7 +326,7 @@ update msg model =
             ( { model | notes = notes }, Cmd.none )
 
         ClickedSaveBookInfo ->
-            ( model, saveTranslationBookFromModel model )
+            ( { model | saving = True }, saveTranslationBookFromModel model )
 
         GotBook result ->
             ( { model | book = result }, Cmd.none )
@@ -340,12 +342,13 @@ update msg model =
                         , translationBook = result
                         , language = LanguageSelect.updateLanguage language model.language
                         , mode = toMode id
+                        , saving = False
                       }
                     , Cmd.none
                     )
 
                 _ ->
-                    ( { model | translationBook = result }, Cmd.none )
+                    ( { model | translationBook = result, saving = False }, Cmd.none )
 
         GotLanguages result ->
             ( case result of
@@ -361,7 +364,7 @@ update msg model =
             )
 
         ClickedSaveAndReturnFromBookInfo ->
-            ( model
+            ( { model | saving = True }
             , Cmd.batch
                 [ saveTranslationBookFromModel model
                 , Route.replaceUrl model.context.key (Route.BookDetail model.bookId False)
@@ -496,7 +499,7 @@ update msg model =
                             ( model, Cmd.none )
 
                         EditTranslationBook _ ->
-                            ( model, saveTranslationBookFromModel model )
+                            ( { model | saving = True }, saveTranslationBookFromModel model )
 
                         _ ->
                             saveTranslationAndDo model GoToNextPage
@@ -794,21 +797,21 @@ viewForm ({ title, author, language, translator, notes, mode } as model) origina
 
         saveButton =
             Input.button [ El.alignRight, height 25, width 100 ]
-                (case validTranslationBook model of
-                    Nothing ->
-                        { onPress = Nothing
-                        , label =
-                            El.text "Save"
-                                |> El.el [ El.centerX, El.centerY ]
-                                |> El.el [ Background.color Style.grey, El.height El.fill, El.width El.fill ]
-                        }
-
-                    Just _ ->
+                (case ( validTranslationBook model, model.saving ) of
+                    ( Just _, False ) ->
                         { onPress = Just ClickedSaveBookInfo
                         , label =
                             El.text "Save"
                                 |> El.el [ El.centerX, El.centerY ]
                                 |> El.el [ Background.color Style.nightBlue, El.height El.fill, El.width El.fill ]
+                        }
+
+                    _ ->
+                        { onPress = Nothing
+                        , label =
+                            El.text "Save"
+                                |> El.el [ El.centerX, El.centerY ]
+                                |> El.el [ Background.color Style.grey, El.height El.fill, El.width El.fill ]
                         }
                 )
     in
