@@ -30,6 +30,7 @@ import Html.Events
 import Http
 import Json.Decode as Decode exposing (Decoder)
 import LanguageSelect
+import Maybe.Extra as Maybe
 import Page.Books exposing (Book)
 import RemoteData exposing (RemoteData(..), WebData)
 import Route
@@ -78,7 +79,7 @@ init context cred bookId =
                 Just id ->
                     { book = Loading
                     , cmd = [ getBook cred id, getPages cred id ]
-                    , button = "Edit Book"
+                    , button = "Save"
                     , isNew = False
                     }
     in
@@ -105,6 +106,16 @@ init context cred bookId =
       }
     , Cmd.batch (getCategories cred :: getlanguages cred :: editParams.cmd)
     )
+
+
+type alias ValidBook =
+    { id : Maybe String
+    , title : String
+    , author : String
+    , language : Language
+    , category : Category
+    , previews : List Image
+    }
 
 
 type alias Image =
@@ -169,7 +180,7 @@ type Msg
     | Animate Animation.Msg
     | DeleteImage Int
       -- Saving
-    | ClickedSave
+    | ClickedSave ValidBook
     | BookCreated (RemoteData (Error String) String)
     | PagesSaved String (WebData ())
 
@@ -301,16 +312,8 @@ update msg model =
             ( { model | previews = previews }, Cmd.none )
 
         -- Saving
-        ClickedSave ->
-            -- TODO Full check: non-empty title author pages
-            case ( model.category, LanguageSelect.getLanguage model.language ) of
-                ( Just category, Just language ) ->
-                    ( model
-                    , createBook model.cred model.bookId model.title model.author language category
-                    )
-
-                _ ->
-                    ( model, Cmd.none )
+        ClickedSave book ->
+            ( model, createBook model.cred book )
 
         BookCreated result ->
             case result of
@@ -327,6 +330,36 @@ update msg model =
 
                 _ ->
                     ( model, Cmd.none )
+
+
+validBook : Model -> Maybe ValidBook
+validBook { bookId, title, author, language, category, previews } =
+    let
+        nonEmptyString string =
+            case string of
+                "" ->
+                    Nothing
+
+                _ ->
+                    Just string
+
+        checkPreviews : List Image -> Maybe (List Image)
+        checkPreviews images =
+            case images of
+                [] ->
+                    Nothing
+
+                _ ->
+                    Maybe.traverse
+                        (\image -> Maybe.andMap (nonEmptyString image.preview) (Just (always image)))
+                        images
+    in
+    Just (ValidBook bookId)
+        |> Maybe.andMap (nonEmptyString title)
+        |> Maybe.andMap (nonEmptyString author)
+        |> Maybe.andMap (LanguageSelect.getLanguage language)
+        |> Maybe.andMap category
+        |> Maybe.andMap (checkPreviews previews)
 
 
 
@@ -387,24 +420,32 @@ view model =
 
 
 viewForm : Model -> List Category -> Element Msg
-viewForm { title, author, language, category, dnd, previews, crossAnimation, editParams } categories =
+viewForm ({ title, author, language, category, dnd, previews, crossAnimation, rotateAnimation, editParams } as model) categories =
     El.column [ El.spacing 20, El.width El.fill, Font.size 18 ]
         [ LanguageSelect.view language
             |> El.el [ El.paddingEach { left = 40, right = 0, top = 0, bottom = 0 } ]
         , viewTextInput title "Title" InputTitle
         , viewTextInput author "Author(s)" InputAuthor
         , viewCategories category categories
-        , viewPageDownload dnd crossAnimation previews
-        , Input.button
-            [ Font.color Style.nightBlue
-            , Border.color Style.nightBlue
-            , Border.width 2
-            , El.alignRight
-            ]
-            { onPress = Just ClickedSave
-            , label =
-                El.row [ El.paddingXY 10 5, height 40, width 140 ] [ El.text editParams.button, iconPlaceholder ]
-            }
+        , viewPageDownload dnd crossAnimation rotateAnimation previews
+        , case validBook model of
+            Nothing ->
+                Input.button
+                    [ Font.color Style.grey, Border.color Style.grey, Border.width 2, El.alignRight ]
+                    { onPress = Nothing
+                    , label =
+                        El.row [ El.paddingXY 10 5, height 40 ]
+                            [ El.text editParams.button, iconPlaceholder ]
+                    }
+
+            Just book ->
+                Input.button
+                    [ Font.color Style.nightBlue, Border.color Style.nightBlue, Border.width 2, El.alignRight ]
+                    { onPress = Just (ClickedSave book)
+                    , label =
+                        El.row [ El.paddingXY 10 5, height 40 ]
+                            [ El.text editParams.button, iconPlaceholder ]
+                    }
         ]
 
 
@@ -716,11 +757,11 @@ getBook cred bookId =
     Api.queryRequest cred (bookQuery bookId) GotExistingBook
 
 
-createBook : Cred -> Maybe String -> String -> String -> Language -> Category -> Cmd Msg
-createBook cred bookId title author language category =
+createBook : Cred -> ValidBook -> Cmd Msg
+createBook cred { id, title, author, language, category } =
     let
         selection =
-            Mutation.createBook (always { id = OptionalArgument.fromMaybe (Maybe.map Id bookId) })
+            Mutation.createBook (always { id = OptionalArgument.fromMaybe (Maybe.map Id id) })
                 { author = author
                 , categoryId = Id category.id
                 , languageId = language.id

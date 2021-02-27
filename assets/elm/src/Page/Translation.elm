@@ -557,7 +557,6 @@ validTranslationBook { language, bookId, translationBookId, title, author, trans
 
 saveTranslationBookFromModel : Model -> Cmd Msg
 saveTranslationBookFromModel model =
-    -- TODO Full check: non-empty title author translator
     case validTranslationBook model of
         Just translationBook ->
             saveTranslationBook model.cred translationBook
