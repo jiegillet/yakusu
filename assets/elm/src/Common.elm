@@ -11,6 +11,7 @@ import Element.Font as Font
 import Element.Lazy as Lazy
 import Http exposing (Error(..))
 import RemoteData exposing (RemoteData(..), WebData)
+import Route
 import Style
 import Time exposing (Month(..), Weekday(..))
 
@@ -44,30 +45,17 @@ viewHeader =
 viewHeaderHelper : { a | cred : Maybe Cred, windowWidth : Int } -> msg -> Element msg
 viewHeaderHelper { cred, windowWidth } logout =
     El.row
-        [ El.height (El.px 100)
-        , El.width El.fill
-        , El.paddingXY 100 0
+        [ height 100
+        , width windowWidth
         , Background.color Style.grey
         ]
-        [ El.link []
-            { url = "/"
-            , label = El.none
-
-            -- El.image [ El.alignLeft, El.height (El.px 50) ]
-            --     { src =
-            --         -- if windowWidth >= 820 then
-            --         -- "/images/oist-header-en.png"
-            --         -- else
-            --         "/images/oist-header-en-mobile.png"
-            --     , description = "OIST Logo"
-            --     }
-            }
-        , El.paragraph [ El.centerY ]
-            [ El.text "Yakusu"
-                |> El.el [ Font.size 36, Font.bold ]
-            , El.text " - the OIST Tedako childrens book translation interface"
-                |> El.el [ Font.size 24 ]
-            ]
+        [ Route.link Route.Books
+            [ width 1000, El.paddingXY 40 0, El.centerX ]
+            (El.paragraph [ El.centerY ]
+                [ El.text "Yakusu" |> El.el [ Font.size 36, Font.family [ Font.typeface "clear_sans_mediumregular" ] ]
+                , El.text " - the OIST Tedako Book Translation Interface" |> El.el [ Font.size 24 ]
+                ]
+            )
         ]
 
 
