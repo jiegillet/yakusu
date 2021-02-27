@@ -15,6 +15,7 @@ import Element.Border as Border
 import Element.Events as Events
 import Element.Font as Font
 import Element.Input as Input exposing (OptionState(..))
+import Element.Lazy as Lazy
 import File exposing (File)
 import File.Select as Select
 import GraphQLBook.Mutation as Mutation
@@ -35,7 +36,7 @@ import Page.Books exposing (Book)
 import RemoteData exposing (RemoteData(..), WebData)
 import Route
 import Style
-import Svg
+import Svg exposing (Svg)
 import Svg.Attributes as S
 import Types exposing (Category, Language)
 
@@ -60,6 +61,7 @@ type alias Model =
     , previews : List Image
     , oldImages : List Image
     , dnd : DnDList.Model
+    , allImagesLoaded : Bool
     , crossAnimation : Animation.State
     , rotateAnimation : Animation.State
     , saving : Bool
@@ -97,6 +99,7 @@ init context cred bookId =
       , languages = Loading
       , language = LanguageSelect.init "Original Language" "attr-Title" LanguageMsg
       , dnd = system.model
+      , allImagesLoaded = True
       , title = ""
       , author = ""
       , category = Nothing
@@ -272,6 +275,7 @@ update msg model =
                 , previews =
                     model.previews
                         ++ List.map (always emptyImage) filteredFiles
+                , allImagesLoaded = False
                 , rotateAnimation =
                     Animation.interrupt
                         [ Animation.loop
@@ -294,15 +298,19 @@ update msg model =
                         previews =
                             setAt index preview model.previews
 
+                        allImagesLoaded =
+                            not (List.any (.preview >> String.isEmpty) previews)
+
                         updateRotation =
-                            if List.any (.preview >> String.isEmpty) previews then
-                                identity
+                            if allImagesLoaded then
+                                Animation.interrupt []
 
                             else
-                                Animation.interrupt []
+                                identity
                     in
                     ( { model
                         | previews = previews
+                        , allImagesLoaded = allImagesLoaded
                         , rotateAnimation = updateRotation model.rotateAnimation
                       }
                     , Cmd.none
@@ -456,14 +464,14 @@ view model =
 
 
 viewForm : Model -> List Category -> Element Msg
-viewForm ({ title, author, language, category, dnd, previews, crossAnimation, rotateAnimation, editParams } as model) categories =
+viewForm ({ dnd, previews, crossAnimation, rotateAnimation, editParams, allImagesLoaded } as model) categories =
     El.column [ El.spacing 20, El.width El.fill, Font.size 18 ]
-        [ LanguageSelect.view language
+        [ Lazy.lazy LanguageSelect.view model.language
             |> El.el [ El.paddingEach { left = 40, right = 0, top = 0, bottom = 0 } ]
-        , viewTextInput title "Title" InputTitle
-        , viewTextInput author "Author(s)" InputAuthor
-        , viewCategories category categories
-        , viewPageDownload dnd crossAnimation rotateAnimation previews
+        , Lazy.lazy3 viewTextInput model.title "Title" InputTitle
+        , Lazy.lazy3 viewTextInput model.author "Author(s)" InputAuthor
+        , Lazy.lazy2 viewCategories model.category categories
+        , viewPageDownload dnd crossAnimation rotateAnimation allImagesLoaded previews
         , case ( validBook model, model.saving ) of
             ( Just book, False ) ->
                 Input.button
@@ -542,9 +550,41 @@ viewCategories category categories =
         |> El.el [ El.paddingEach { top = 5, bottom = 0, left = 0, right = 0 } ]
 
 
-viewPageDownload : DnDList.Model -> Animation.State -> Animation.State -> List Image -> Element Msg
-viewPageDownload dnd crossAnimation rotateAnimation images =
-    El.column [ El.spacing 20, El.inFront (ghostView rotateAnimation dnd images) ]
+viewPageDownload : DnDList.Model -> Animation.State -> Animation.State -> Bool -> List Image -> Element Msg
+viewPageDownload dnd crossAnimation rotateAnimation allImagesLoaded images =
+    let
+        loadingDuck =
+            let
+                points =
+                    3
+            in
+            Svg.svg
+                (S.width "80"
+                    :: S.height "80"
+                    :: S.viewBox "-40 -40 80 80"
+                    :: S.fill "rgb(61, 152, 255)"
+                    :: Animation.render rotateAnimation
+                )
+                [ List.map
+                    (\i ->
+                        -- Svg.circle
+                        --     [ 20 * cos (turns (toFloat i / 7)) |> String.fromFloat |> S.cx
+                        --     , 20 * sin (turns (toFloat i / 7)) |> String.fromFloat |> S.cy
+                        --     , S.r "3"
+                        --     ]
+                        --     []
+                        Svg.text_
+                            [ S.x "0"
+                            , S.y "10"
+                            , S.transform ("scale(3) rotate(" ++ String.fromFloat (toFloat i * 360 / points) ++ ")")
+                            ]
+                            [ Svg.text "\u{1F986}" ]
+                    )
+                    (List.range 1 points)
+                    |> Svg.g []
+                ]
+    in
+    El.column [ El.spacing 20, El.inFront (ghostView dnd images) ]
         [ El.row
             [ Background.color Style.grey
             , width 250
@@ -555,7 +595,7 @@ viewPageDownload dnd crossAnimation rotateAnimation images =
             [ iconPlaceholder, El.text "Add Pages" ]
             |> El.el [ El.paddingEach { top = 5, bottom = 0, left = 0, right = 0 } ]
         , El.row [ El.spacing 10 ]
-            [ List.indexedMap (viewImage rotateAnimation dnd) images
+            [ List.indexedMap (viewImage loadingDuck dnd allImagesLoaded) images
                 ++ [ viewAddOrDelete dnd crossAnimation ]
                 |> El.wrappedRow
                     [ width 620
@@ -596,8 +636,8 @@ hijack msg =
     ( msg, True )
 
 
-viewImage : Animation.State -> DnDList.Model -> Int -> Image -> Element Msg
-viewImage rotateAnimation dnd index { preview } =
+viewImage : Svg Msg -> DnDList.Model -> Bool -> Int -> Image -> Element Msg
+viewImage loadingDuck dnd allImagesLoaded index { preview } =
     let
         itemId : String
         itemId =
@@ -608,27 +648,41 @@ viewImage rotateAnimation dnd index { preview } =
             , height 80
             , Border.width 2
             , Border.color Style.nightBlue
-            , El.htmlAttribute (Attributes.id itemId)
             ]
+
+        viewPreview attrs =
+            case ( preview, allImagesLoaded ) of
+                ( "", _ ) ->
+                    loadingDuck
+                        |> El.html
+                        |> El.el baseAttributes
+
+                ( _, False ) ->
+                    El.el (Background.image preview :: baseAttributes) El.none
+
+                _ ->
+                    El.el
+                        (Background.image preview
+                            :: El.htmlAttribute (Attributes.id itemId)
+                            :: attrs
+                            ++ baseAttributes
+                        )
+                        El.none
     in
     case system.info dnd of
         Just { dragIndex } ->
             if dragIndex /= index then
-                viewPreview preview
-                    (List.map El.htmlAttribute (system.dropEvents index itemId) ++ baseAttributes)
-                    rotateAnimation
+                viewPreview (List.map El.htmlAttribute (system.dropEvents index itemId))
 
             else
                 El.el (Background.color Style.nightBlue :: baseAttributes) El.none
 
         Nothing ->
-            viewPreview preview
-                (baseAttributes ++ List.map El.htmlAttribute (system.dragEvents index itemId))
-                rotateAnimation
+            viewPreview (List.map El.htmlAttribute (system.dragEvents index itemId))
 
 
-ghostView : Animation.State -> DnDList.Model -> List Image -> Element Msg
-ghostView rotateAnimation dnd previews =
+ghostView : DnDList.Model -> List Image -> Element Msg
+ghostView dnd previews =
     let
         maybeDragItem : Maybe Image
         maybeDragItem =
@@ -637,42 +691,12 @@ ghostView rotateAnimation dnd previews =
     in
     case maybeDragItem of
         Just { preview } ->
-            viewPreview preview
-                (width 80 :: height 80 :: List.map El.htmlAttribute (system.ghostStyles dnd))
-                rotateAnimation
+            El.el
+                (width 80 :: height 80 :: Background.image preview :: List.map El.htmlAttribute (system.ghostStyles dnd))
+                El.none
 
         Nothing ->
             El.none
-
-
-viewPreview : String -> List (Attribute Msg) -> Animation.State -> Element Msg
-viewPreview preview attrs rotateAnimation =
-    case preview of
-        "" ->
-            Svg.svg
-                (S.width "80"
-                    :: S.height "80"
-                    :: S.viewBox "-40 -40 80 80"
-                    :: S.fill "rgb(61, 152, 255)"
-                    :: Animation.render rotateAnimation
-                )
-                [ List.map
-                    (\i ->
-                        Svg.circle
-                            [ 20 * cos (turns (toFloat i / 7)) |> String.fromFloat |> S.cx
-                            , 20 * sin (turns (toFloat i / 7)) |> String.fromFloat |> S.cy
-                            , S.r "3"
-                            ]
-                            []
-                    )
-                    (List.range 1 7)
-                    |> Svg.g []
-                ]
-                |> El.html
-                |> El.el attrs
-
-        _ ->
-            El.el (Background.image preview :: attrs) El.none
 
 
 viewAddOrDelete : DnDList.Model -> Animation.State -> Element Msg
