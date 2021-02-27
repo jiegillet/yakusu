@@ -375,15 +375,11 @@ view model =
         case ( model.categories, model.languages ) of
             ( Success categories, Success _ ) ->
                 El.column
-                    [ width 1000
-                    , El.spacing 30
-                    , El.centerX
-                    ]
+                    [ width 1000, El.spacing 30, El.paddingXY 0 30 ]
                     [ back
                     , explanation
                     , viewForm model categories
                     ]
-                    |> El.el [ El.paddingXY 100 30 ]
 
             _ ->
                 El.none

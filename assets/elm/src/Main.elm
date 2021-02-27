@@ -5,7 +5,7 @@ import Browser
 import Browser.Dom as Dom
 import Browser.Events as Events
 import Browser.Navigation as Nav exposing (Key)
-import Common exposing (Context)
+import Common exposing (Context, width)
 import Element as El
 import Element.Font as Font
 import Html exposing (Html)
@@ -288,13 +288,11 @@ view model =
             { title = title
             , body =
                 El.column
-                    [ El.width (El.px (getContext model).windowWidth)
-                    , Font.family [ Font.typeface "clear_sans_lightregular" ]
-                    ]
+                    [ width (getContext model).windowWidth ]
                     [ Common.viewHeader (getContext model) ClickedLogOut
-                    , El.map toMsg body
+                    , El.map toMsg (El.el [ El.centerX, El.paddingXY 100 0 ] body)
                     ]
-                    |> El.layout [ Font.size 14 ]
+                    |> El.layout [ Font.family [ Font.typeface "clear_sans_lightregular" ] ]
                     |> (\b -> [ b ])
             }
     in

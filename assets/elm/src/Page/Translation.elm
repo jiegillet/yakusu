@@ -775,7 +775,7 @@ iconPlaceholder =
 
 saveAndReturn : msg -> Element msg
 saveAndReturn save =
-    Input.button [ El.paddingEach { left = 40, right = 0, top = 0, bottom = 0 } ]
+    Input.button [ El.paddingXY 70 0 ]
         { onPress = Just save
         , label =
             El.row [ El.paddingXY 10 5, height 40 ] [ iconPlaceholder, El.text "Save all and Return" ]
@@ -814,11 +814,7 @@ viewForm ({ title, author, language, translator, notes, mode } as model) origina
                 )
     in
     El.column
-        [ El.spacing 30
-        , El.paddingXY 0 30
-        , El.centerX
-        , width 1140
-        ]
+        [ El.spacing 30, El.paddingXY 0 30, width 1140 ]
         [ saveAndReturn ClickedSaveAndReturnFromBookInfo
         , El.column [ El.spacing 20 ]
             [ El.row []
@@ -917,11 +913,7 @@ viewTranslate model pages =
                 ]
     in
     El.column
-        [ El.spacing 30
-        , El.paddingXY 0 30
-        , El.centerX
-        , width 1140
-        ]
+        [ El.spacing 30, El.paddingXY 0 30, width 1140 ]
         [ saveAndReturn ClickedSaveAndReturnFromTranslation
         , El.row []
             [ -- Number  on the left

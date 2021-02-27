@@ -132,7 +132,7 @@ view model =
         case model.book of
             Success (Just book) ->
                 El.column
-                    [ width 1000, El.centerX ]
+                    [ width 1000, El.paddingXY 0 30 ]
                     [ back
                     , El.el [ Font.size 24, El.paddingXY 40 30 ] (El.text model.welcomeText)
                     , viewBook book
@@ -140,7 +140,6 @@ view model =
                     , addMore
                     , backRight
                     ]
-                    |> El.el [ El.paddingXY 100 30 ]
 
             Success Nothing ->
                 El.column

@@ -155,14 +155,10 @@ view model =
         case ( model.books, model.categories ) of
             ( Success books, Success categories ) ->
                 El.column
-                    [ El.spacing 25
-                    , El.paddingXY 0 50
-                    , width 1000
-                    , El.centerX
-                    ]
+                    [ El.spacing 25, width 1000 ]
                     [ El.paragraph [ Font.size 24, El.paddingXY 0 30 ]
                         [ El.text "Welcome to "
-                        , El.text "Yakusu" |> El.el [ Font.bold ]
+                        , El.text "Yakusu" |> El.el [ Font.family [ Font.typeface "clear_sans_mediumregular" ] ]
                         ]
                     , El.row [ El.spacing 10, Font.size 20 ]
                         [ El.row [ Background.color Style.grey, width 470, height 45 ]
