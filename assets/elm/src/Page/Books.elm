@@ -12,6 +12,7 @@ import GraphQLBook.Object.Book as GBook
 import GraphQLBook.Object.TranslationBook as TBook
 import GraphQLBook.Query as Query
 import Graphql.SelectionSet as SelectionSet exposing (SelectionSet)
+import LanguageSelect
 import RemoteData exposing (RemoteData(..))
 import Route
 import Style
@@ -262,7 +263,7 @@ viewBooks checkedCategories ( column, order ) books =
                     .translations >> List.map (.language >> .language) >> List.sort >> String.concat
 
                 NeededTranslation ->
-                    neededLanguages >> String.concat
+                    neededLanguages >> List.map .id >> String.concat
 
                 Topic ->
                     .category >> .name
@@ -270,13 +271,12 @@ viewBooks checkedCategories ( column, order ) books =
         neededLanguages { language, translations } =
             let
                 languages =
-                    (language :: List.map .language translations)
-                        |> List.map .language
+                    language :: List.map .language translations
 
                 isNeeded l =
                     not (List.member l languages)
             in
-            [ "English", "Japanese" ]
+            [ LanguageSelect.english, LanguageSelect.japanese ]
                 |> List.filter isNeeded
 
         header title col =
@@ -357,9 +357,10 @@ viewBooks checkedCategories ( column, order ) books =
                     \i ({ id } as book) ->
                         neededLanguages book
                             |> List.map
-                                (El.text
-                                    >> Route.link (Route.AddTranslation id)
-                                        [ Font.underline ]
+                                (\language ->
+                                    El.text language.language
+                                        |> Route.link (Route.AddTranslation id (Just language))
+                                            [ Font.underline ]
                                 )
                             |> El.column []
                             |> content i

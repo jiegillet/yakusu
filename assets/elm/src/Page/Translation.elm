@@ -70,8 +70,8 @@ type alias Model =
     }
 
 
-init : Context -> Cred -> String -> Maybe String -> ( Model, Cmd Msg )
-init context cred bookId translationBookId =
+init : Context -> Cred -> String -> Maybe String -> Maybe Language -> ( Model, Cmd Msg )
+init context cred bookId translationBookId maybeLanguage =
     let
         editParams =
             case translationBookId of
@@ -99,7 +99,15 @@ init context cred bookId translationBookId =
       , translationBook = editParams.translationBook
       , title = ""
       , author = ""
-      , language = LanguageSelect.init "Translation Language" "attr-Translated Title" LanguageMsg
+      , language =
+            LanguageSelect.init "Translation Language" "attr-Translated Title" LanguageMsg
+                |> (case maybeLanguage of
+                        Nothing ->
+                            identity
+
+                        Just language ->
+                            LanguageSelect.updateLanguage language
+                   )
       , translator = ""
       , notes = ""
       , languages = Loading

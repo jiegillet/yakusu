@@ -232,12 +232,12 @@ changeRouteTo maybeRoute model =
                     BookDetail.init context cred bookId isNew
                         |> updateWith BookDetail GotBookDetailMsg
 
-                Just (Route.AddTranslation bookId) ->
-                    Translation.init context cred bookId Nothing
+                Just (Route.AddTranslation bookId maybeLanguage) ->
+                    Translation.init context cred bookId Nothing maybeLanguage
                         |> updateWith Translation GotTranslationMsg
 
                 Just (Route.EditTranslation bookId trBookId) ->
-                    Translation.init context cred bookId (Just trBookId)
+                    Translation.init context cred bookId (Just trBookId) Nothing
                         |> updateWith Translation GotTranslationMsg
 
                 Just Route.Login ->

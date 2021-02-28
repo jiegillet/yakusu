@@ -1,8 +1,7 @@
-module LanguageSelect exposing (Model, Msg, getLanguage, init, showMissingFields, subscriptions, update, updateLanguage, updateLanguageList, view)
+module LanguageSelect exposing (Model, Msg, english, getLanguage, init, japanese, showMissingFields, subscriptions, toEnglishOrJapanese, update, updateLanguage, updateLanguageList, view)
 
 import Browser.Dom as Dom
 import Browser.Events
-import Common exposing (height, width)
 import Element as El exposing (Color, Element)
 import Element.Background as Background
 import Element.Border as Border
@@ -109,13 +108,35 @@ getLanguage { selectLanguage, languageDropdown } =
             Just lan
 
         ( English, _ ) ->
-            Just (Language "en" "English")
+            Just english
 
         ( Japanese, _ ) ->
-            Just (Language "ja" "Japanese")
+            Just japanese
 
         _ ->
             Nothing
+
+
+english : Language
+english =
+    Language "en" "English"
+
+
+japanese : Language
+japanese =
+    Language "ja" "Japanese"
+
+
+toEnglishOrJapanese : String -> Maybe Language
+toEnglishOrJapanese id =
+    if id == "ja" then
+        Just japanese
+
+    else if id == "en" then
+        Just english
+
+    else
+        Nothing
 
 
 
@@ -223,7 +244,7 @@ view ({ languageDropdown, selectLanguage, languages, toMsg, labelText, showMissi
         label txt =
             El.text txt
                 |> El.el [ El.centerY, El.centerX ]
-                |> El.el [ height 42, width 60 ]
+                |> El.el [ El.height (El.px 42), El.width (El.px 60) ]
     in
     Input.radioRow [ El.spacing 31, Font.size 18 ]
         { onChange = InputLanguage >> toMsg
@@ -231,7 +252,7 @@ view ({ languageDropdown, selectLanguage, languages, toMsg, labelText, showMissi
             Input.labelLeft [ El.paddingEach { top = 0, bottom = 0, left = 0, right = 20 } ]
                 (El.text labelText
                     |> El.el [ El.padding 10, El.centerY, Font.size 18 ]
-                    |> El.el [ Background.color Style.nightBlue, height 42, width 200 ]
+                    |> El.el [ Background.color Style.nightBlue, El.height (El.px 42), El.width (El.px 200) ]
                 )
         , selected = Just selectLanguage
         , options =
@@ -280,7 +301,7 @@ viewLanguageDropdown toMsg color dropdown languages =
                     )
     in
     Input.search
-        ([ width 280
+        ([ El.width (El.px 280)
          , Border.width 2
          , Border.color color
          , Border.rounded 0

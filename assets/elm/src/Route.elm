@@ -2,6 +2,8 @@ module Route exposing (Route(..), fromUrl, link, replaceUrl)
 
 import Browser.Navigation as Nav
 import Element as El exposing (Attribute, Element)
+import LanguageSelect
+import Types exposing (Language)
 import Url exposing (Url)
 import Url.Builder exposing (QueryParameter)
 import Url.Parser as Parser exposing ((</>), (<?>), Parser)
@@ -14,7 +16,7 @@ type Route
     | AddBook
     | EditBook String
     | BookDetail String Bool
-    | AddTranslation String
+    | AddTranslation String (Maybe Language)
     | EditTranslation String String
 
 
@@ -35,7 +37,11 @@ parser =
         , Parser.map EditBook (Parser.s "book" </> Parser.s "edit" </> Parser.string)
         , Parser.map AddBook (Parser.s "book" </> Parser.s "add")
         , Parser.map BookDetail (Parser.s "book" </> Parser.s "detail" </> Parser.string <?> (Query.string "status" |> Query.map toBool))
-        , Parser.map AddTranslation (Parser.s "translate" </> Parser.string)
+        , Parser.map AddTranslation
+            (Parser.s "translate"
+                </> Parser.string
+                <?> (Query.string "language" |> Query.map (Maybe.andThen LanguageSelect.toEnglishOrJapanese))
+            )
         , Parser.map EditTranslation (Parser.s "translate" </> Parser.string </> Parser.string)
         ]
 
@@ -61,8 +67,11 @@ routeToPieces route =
         BookDetail id False ->
             ( [ "book", "detail", id ], [] )
 
-        AddTranslation bookId ->
-            ( [ "translate", bookId ], [] )
+        AddTranslation bookId maybeLanguage ->
+            ( [ "translate", bookId ]
+            , Maybe.withDefault []
+                (Maybe.map (\{ id } -> [ Url.Builder.string "language" id ]) maybeLanguage)
+            )
 
         EditTranslation bookId translationId ->
             ( [ "translate", bookId, translationId ], [] )

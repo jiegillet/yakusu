@@ -184,7 +184,7 @@ viewTranslations : List BookTranslation -> String -> String -> Element Msg
 viewTranslations books bookId bookTitle =
     let
         addTranslation =
-            Route.link (Route.AddTranslation bookId)
+            Route.link (Route.AddTranslation bookId Nothing)
                 [ Border.color Style.nightBlue
                 , Border.width 2
                 , El.alignRight
