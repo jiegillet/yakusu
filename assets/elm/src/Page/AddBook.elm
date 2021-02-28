@@ -31,6 +31,7 @@ import Html.Events
 import Http
 import Json.Decode as Decode exposing (Decoder)
 import LanguageSelect
+import List.Extra as List
 import Maybe.Extra as Maybe
 import Page.Books exposing (Book)
 import RemoteData exposing (RemoteData(..), WebData)
@@ -65,6 +66,7 @@ type alias Model =
     , crossAnimation : Animation.State
     , rotateAnimation : Animation.State
     , saving : Bool
+    , showMissingFields : Bool
     }
 
 
@@ -112,6 +114,7 @@ init context cred bookId =
             Animation.style
                 [ Animation.transformOrigin (Animation.percent 50) (Animation.percent 50) (Animation.percent 0) ]
       , saving = False
+      , showMissingFields = False
       }
     , Cmd.batch (getCategories cred :: getlanguages cred :: editParams.cmd)
     )
@@ -154,19 +157,6 @@ system =
 
 
 
--- HELPER
-
-
-setAt : Int -> a -> List a -> List a
-setAt index a list =
-    if index >= 0 && index < List.length list then
-        List.take index list ++ a :: List.drop (index + 1) list
-
-    else
-        list
-
-
-
 -- UPDATE
 
 
@@ -190,6 +180,7 @@ type Msg
     | DeleteImage Int
       -- Saving
     | ClickedSave ValidBook
+    | ShowMissingFields
     | BookCreated (RemoteData (Error String) String)
     | PagesSaved String (WebData ())
 
@@ -296,7 +287,7 @@ update msg model =
                 Success ( index, preview ) ->
                     let
                         previews =
-                            setAt index preview model.previews
+                            List.setAt index preview model.previews
 
                         allImagesLoaded =
                             not (List.any (.preview >> String.isEmpty) previews)
@@ -358,6 +349,11 @@ update msg model =
         -- Saving
         ClickedSave book ->
             ( { model | saving = True }, createBook model.cred book )
+
+        ShowMissingFields ->
+            ( { model | showMissingFields = True, language = LanguageSelect.showMissingFields model.language }
+            , Cmd.none
+            )
 
         BookCreated result ->
             case result of
@@ -468,10 +464,10 @@ viewForm ({ dnd, previews, crossAnimation, rotateAnimation, editParams, allImage
     El.column [ El.spacing 20, El.width El.fill, Font.size 18 ]
         [ Lazy.lazy LanguageSelect.view model.language
             |> El.el [ El.paddingEach { left = 40, right = 0, top = 0, bottom = 0 } ]
-        , Lazy.lazy3 viewTextInput model.title "Title" InputTitle
-        , Lazy.lazy3 viewTextInput model.author "Author(s)" InputAuthor
-        , Lazy.lazy2 viewCategories model.category categories
-        , viewPageDownload dnd crossAnimation rotateAnimation allImagesLoaded previews
+        , Lazy.lazy4 viewTextInput model.showMissingFields model.title "Title" InputTitle
+        , Lazy.lazy4 viewTextInput model.showMissingFields model.author "Author(s)" InputAuthor
+        , Lazy.lazy3 viewCategories model.category categories model.showMissingFields
+        , viewPageDownload dnd crossAnimation rotateAnimation allImagesLoaded model.showMissingFields previews
         , case ( validBook model, model.saving ) of
             ( Just book, False ) ->
                 Input.button
@@ -485,7 +481,7 @@ viewForm ({ dnd, previews, crossAnimation, rotateAnimation, editParams, allImage
             _ ->
                 Input.button
                     [ Font.color Style.grey, Border.color Style.grey, Border.width 2, El.alignRight ]
-                    { onPress = Nothing
+                    { onPress = Just ShowMissingFields
                     , label =
                         El.row [ El.paddingXY 10 5, height 40 ]
                             [ El.text editParams.button, iconPlaceholder ]
@@ -493,14 +489,18 @@ viewForm ({ dnd, previews, crossAnimation, rotateAnimation, editParams, allImage
         ]
 
 
-viewTextInput : String -> String -> (String -> Msg) -> Element Msg
-viewTextInput text label message =
+viewTextInput : Bool -> String -> String -> (String -> Msg) -> Element Msg
+viewTextInput showMissingFields text label message =
     Input.text
-        [ Border.color Style.nightBlue
+        [ if showMissingFields && String.isEmpty text then
+            Border.color Style.oistRed
+
+          else
+            Border.color Style.nightBlue
         , Border.rounded 0
         , Border.width 2
         , El.spacing 10
-        , width 340
+        , width 364
         , height 42
         , El.padding 10
 
@@ -517,8 +517,8 @@ viewTextInput text label message =
         |> El.el [ El.paddingEach { left = 40, right = 0, top = 0, bottom = 0 } ]
 
 
-viewCategories : Maybe Category -> List Category -> Element Msg
-viewCategories category categories =
+viewCategories : Maybe Category -> List Category -> Bool -> Element Msg
+viewCategories category categories showMissingFields =
     let
         viewCategory ({ name } as cat) =
             Input.checkbox [ width 150, height 25 ]
@@ -541,17 +541,25 @@ viewCategories category categories =
                 }
     in
     El.column [ El.spacing 20 ]
-        [ El.row [ Background.color Style.grey, width 250, height 45, Font.size 20 ]
+        [ El.row
+            ([ Background.color Style.grey, width 250, height 45, Font.size 20 ]
+                ++ (if showMissingFields && category == Maybe.Nothing then
+                        [ Border.color Style.oistRed, Border.width 2 ]
+
+                    else
+                        []
+                   )
+            )
             [ iconPlaceholder, El.text "Select Theme" ]
         , categories
             |> List.map viewCategory
-            |> El.wrappedRow [ El.paddingEach { top = 0, bottom = 0, left = 40, right = 0 }, El.spacing 12 ]
+            |> El.wrappedRow [ El.spacing 12, El.paddingEach { top = 0, bottom = 0, left = 40, right = 0 } ]
         ]
         |> El.el [ El.paddingEach { top = 5, bottom = 0, left = 0, right = 0 } ]
 
 
-viewPageDownload : DnDList.Model -> Animation.State -> Animation.State -> Bool -> List Image -> Element Msg
-viewPageDownload dnd crossAnimation rotateAnimation allImagesLoaded images =
+viewPageDownload : DnDList.Model -> Animation.State -> Animation.State -> Bool -> Bool -> List Image -> Element Msg
+viewPageDownload dnd crossAnimation rotateAnimation allImagesLoaded showMissingFields images =
     let
         loadingDuck =
             let
@@ -586,12 +594,19 @@ viewPageDownload dnd crossAnimation rotateAnimation allImagesLoaded images =
     in
     El.column [ El.spacing 20, El.inFront (ghostView dnd images) ]
         [ El.row
-            [ Background.color Style.grey
-            , width 250
-            , height 45
-            , Font.size 20
-            , Events.onClick ClickedUploadFiles
-            ]
+            ([ Background.color Style.grey
+             , width 250
+             , height 45
+             , Font.size 20
+             , Events.onClick ClickedUploadFiles
+             ]
+                ++ (if showMissingFields && images == [] then
+                        [ Border.color Style.oistRed, Border.width 2 ]
+
+                    else
+                        []
+                   )
+            )
             [ iconPlaceholder, El.text "Add Pages" ]
             |> El.el [ El.paddingEach { top = 5, bottom = 0, left = 0, right = 0 } ]
         , El.row [ El.spacing 10 ]
@@ -603,7 +618,11 @@ viewPageDownload dnd crossAnimation rotateAnimation allImagesLoaded images =
                     , El.height (El.minimum 200 El.shrink)
                     ]
                 |> El.el
-                    [ Border.color Style.nightBlue
+                    [ if showMissingFields && images == [] then
+                        Border.color Style.oistRed
+
+                      else
+                        Border.color Style.nightBlue
                     , El.padding 10
                     , Border.width 2
                     , hijackOn "dragenter" (Decode.succeed DragEnterUploadBox)

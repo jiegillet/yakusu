@@ -1,9 +1,9 @@
-module LanguageSelect exposing (Model, Msg, getLanguage, init, subscriptions, update, updateLanguage, updateLanguageList, view)
+module LanguageSelect exposing (Model, Msg, getLanguage, init, showMissingFields, subscriptions, update, updateLanguage, updateLanguageList, view)
 
 import Browser.Dom as Dom
 import Browser.Events
 import Common exposing (height, width)
-import Element as El exposing (Element)
+import Element as El exposing (Color, Element)
 import Element.Background as Background
 import Element.Border as Border
 import Element.Events as Events
@@ -26,6 +26,7 @@ type alias Model msg =
     , focus : String
     , toMsg : Msg -> msg
     , labelText : String
+    , showMissingField : Bool
     }
 
 
@@ -37,6 +38,7 @@ init labelText focus toMsg =
     , focus = focus
     , toMsg = toMsg
     , labelText = labelText
+    , showMissingField = False
     }
 
 
@@ -67,6 +69,11 @@ updateLanguage ({ id } as language) model =
             else
                 Set language
     }
+
+
+showMissingFields : Model msg -> Model msg
+showMissingFields model =
+    { model | showMissingField = True }
 
 
 type SelectLanguage
@@ -204,14 +211,21 @@ subscriptions model =
 
 
 view : Model msg -> Element msg
-view { languageDropdown, selectLanguage, languages, toMsg, labelText } =
+view ({ languageDropdown, selectLanguage, languages, toMsg, labelText, showMissingField } as model) =
     let
+        color =
+            if showMissingField && getLanguage model == Nothing then
+                Style.oistRed
+
+            else
+                Style.nightBlue
+
         label txt =
             El.text txt
                 |> El.el [ El.centerY, El.centerX ]
                 |> El.el [ height 42, width 60 ]
     in
-    Input.radioRow [ El.spacing 30, Font.size 18 ]
+    Input.radioRow [ El.spacing 31, Font.size 18 ]
         { onChange = InputLanguage >> toMsg
         , label =
             Input.labelLeft [ El.paddingEach { top = 0, bottom = 0, left = 0, right = 20 } ]
@@ -223,7 +237,7 @@ view { languageDropdown, selectLanguage, languages, toMsg, labelText } =
         , options =
             [ Input.option Japanese (label "Japanese")
             , Input.option English (label "English")
-            , Input.option Other (viewLanguageDropdown toMsg languageDropdown languages)
+            , Input.option Other (viewLanguageDropdown toMsg color languageDropdown languages)
             ]
         }
 
@@ -238,8 +252,8 @@ maybeToList maybe =
             [ a ]
 
 
-viewLanguageDropdown : (Msg -> msg) -> LanguageDropdown -> List Language -> Element msg
-viewLanguageDropdown toMsg dropdown languages =
+viewLanguageDropdown : (Msg -> msg) -> Color -> LanguageDropdown -> List Language -> Element msg
+viewLanguageDropdown toMsg color dropdown languages =
     let
         languageList text selectedLanguage =
             maybeToList selectedLanguage
@@ -258,7 +272,7 @@ viewLanguageDropdown toMsg dropdown languages =
                      , Events.onClick (DropdownInfoChanged { info | selectedLanguage = Just language } |> toMsg)
                      ]
                         ++ (if Just language == info.hoveredLanguage then
-                                [ Background.color Style.nightBlue, Font.color Style.white ]
+                                [ Background.color color, Font.color Style.white ]
 
                             else
                                 [ Background.color Style.white ]
@@ -268,7 +282,7 @@ viewLanguageDropdown toMsg dropdown languages =
     Input.search
         ([ width 280
          , Border.width 2
-         , Border.color Style.nightBlue
+         , Border.color color
          , Border.rounded 0
          ]
             ++ (case dropdown of
@@ -283,7 +297,7 @@ viewLanguageDropdown toMsg dropdown languages =
                                     |> El.column
                                         [ El.width El.fill
                                         , Border.width 2
-                                        , Border.color Style.nightBlue
+                                        , Border.color color
                                         ]
                                     |> El.below
                                 ]

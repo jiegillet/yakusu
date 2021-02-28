@@ -57,6 +57,7 @@ type alias Model =
     , notes : String
     , languages : GraphQLData (List Language)
     , saving : Bool
+    , showMissingFields : Bool
 
     -- Translating
     , drawingState : DrawingState
@@ -104,6 +105,7 @@ init context cred bookId translationBookId =
       , languages = Loading
       , mode = editParams.mode
       , saving = False
+      , showMissingFields = False
 
       -- Translating
       , drawingState = NotDrawing
@@ -289,6 +291,7 @@ type Msg
     | GotTranslationBook (String -> Mode) (GraphQLData (Maybe TranslationBook))
     | GotLanguages (GraphQLData (List Language))
     | ClickedSaveBookInfo
+    | ShowMissingFields
     | ClickedSaveAndReturnFromBookInfo
       -- Translating
     | StartedDrawing
@@ -327,6 +330,11 @@ update msg model =
 
         ClickedSaveBookInfo ->
             ( { model | saving = True }, saveTranslationBookFromModel model )
+
+        ShowMissingFields ->
+            ( { model | showMissingFields = True, language = LanguageSelect.showMissingFields model.language }
+            , Cmd.none
+            )
 
         GotBook result ->
             ( { model | book = result }, Cmd.none )
@@ -807,7 +815,7 @@ viewForm ({ title, author, language, translator, notes, mode } as model) origina
                         }
 
                     _ ->
-                        { onPress = Nothing
+                        { onPress = Just ShowMissingFields
                         , label =
                             El.text "Save"
                                 |> El.el [ El.centerX, El.centerY ]
@@ -837,9 +845,9 @@ viewForm ({ title, author, language, translator, notes, mode } as model) origina
                             ]
                         , LanguageSelect.view language
                             |> El.el [ El.paddingEach { left = 40, right = 0, top = 0, bottom = 0 } ]
-                        , viewTextInput title "Translated Title" InputTitle
-                        , viewTextInput author "Translated Author(s)" InputAuthor
-                        , viewTextInput translator "Name of Translator(s)" InputTranslator
+                        , viewTextInput title "Translated Title" InputTitle model.showMissingFields
+                        , viewTextInput author "Translated Author(s)" InputAuthor model.showMissingFields
+                        , viewTextInput translator "Name of Translator(s)" InputTranslator model.showMissingFields
                         , saveButton
                         ]
                     ]
@@ -863,10 +871,14 @@ viewForm ({ title, author, language, translator, notes, mode } as model) origina
         ]
 
 
-viewTextInput : String -> String -> (String -> Msg) -> Element Msg
-viewTextInput text label message =
+viewTextInput : String -> String -> (String -> Msg) -> Bool -> Element Msg
+viewTextInput text label message showMissingFields =
     Input.text
-        [ Border.color Style.nightBlue
+        [ if showMissingFields && String.isEmpty text then
+            Border.color Style.oistRed
+
+          else
+            Border.color Style.nightBlue
         , Border.rounded 0
         , Border.width 2
         , width 532
@@ -881,7 +893,8 @@ viewTextInput text label message =
         , text = text
         , placeholder = Nothing
         , label =
-            Input.labelLeft [ El.height El.fill, Background.color Style.nightBlue ]
+            Input.labelLeft
+                [ El.height El.fill, Background.color Style.nightBlue ]
                 (El.el [ width 200, El.padding 10, El.centerY ] (El.text label))
         }
         |> El.el [ El.paddingEach { left = 40, right = 0, top = 0, bottom = 0 } ]
