@@ -351,7 +351,8 @@ update msg model =
             case result of
                 Success (Just { id, title, author, language, translator, notes }) ->
                     ( { model
-                        | title = title
+                        | translationBookId = Just id
+                        , title = title
                         , author = author
                         , translator = translator
                         , notes = notes
