@@ -90,22 +90,13 @@ update msg model =
 -- VIEW
 
 
-iconPlaceholder : Element msg
-iconPlaceholder =
-    El.el [ width 25, height 25, Background.color Style.nightBlue ] El.none
-        |> El.el [ El.padding 5 ]
-
-
 view : Model -> { title : String, body : Element Msg }
 view model =
     let
         back =
             Route.link Route.Books
-                [ Font.color Style.grey
-                , Border.color Style.grey
-                , Border.width 2
-                ]
-                (El.row [ El.paddingXY 10 5, height 40 ] [ iconPlaceholder, El.text "Back to Mainpage" ])
+                [ Font.color Style.grey, Border.color Style.grey, Border.width 2, width 220 ]
+                (El.row [ height 40, El.alignLeft ] [ Style.greyLeftArrow, El.text "Back to Mainpage" ])
                 |> El.el [ El.paddingEach { left = 40, right = 0, top = 0, bottom = 0 }, Font.size 20 ]
 
         backRight =
@@ -115,16 +106,16 @@ view model =
                 , Border.width 2
                 , width 220
                 ]
-                (El.row [ El.paddingXY 10 5, height 40 ] [ El.text "Back to Mainpage", iconPlaceholder ])
+                (El.row [ height 40, El.alignRight ] [ El.text "Back to Mainpage", Style.greyRightArrow ])
                 |> El.el [ El.paddingXY 0 25, Font.size 20, El.alignRight ]
 
         addMore =
             Route.link Route.AddBook
                 [ Font.color Style.black
-                , Background.color Style.nightBlue
+                , Background.color Style.lightCyan
                 , width 220
                 ]
-                (El.row [ El.paddingXY 10 5, height 40 ] [ iconPlaceholder, El.text "Add a New Book" ])
+                (El.row [ El.alignLeft, height 40 ] [ Style.whitePlus, El.text "Add a New Book" ])
                 |> El.el [ El.paddingEach { left = 40, right = 0, top = 25, bottom = 0 }, Font.size 20, El.alignRight ]
     in
     { title = "Thank You"
@@ -161,16 +152,17 @@ viewBook : Book -> Element msg
 viewBook { id, title, author, language, category, numPages } =
     El.column [ El.paddingEach { top = 30, left = 0, right = 0, bottom = 40 }, El.spacing 20 ]
         [ El.row [ Font.size 20, El.spacing 20, height 45 ]
-            [ El.row [ width 470, El.height El.fill, Background.color Style.grey, El.padding 5, El.spacing 10 ]
-                [ iconPlaceholder, El.el [ El.centerY ] (El.text title) ]
+            [ El.row [ width 502, El.height El.fill, Background.color Style.grey, El.padding 5, El.spacing 10 ]
+                [ Style.book, El.el [ El.centerY ] (El.text title) ]
             , Route.link (Route.EditBook id)
                 [ Font.color Style.black
-                , Border.color Style.nightBlue
+                , Border.color Style.lightCyan
                 , Border.width 2
                 , El.height El.fill
+                , width 200
                 ]
                 (El.row [ El.height El.fill, El.paddingXY 5 0 ]
-                    [ iconPlaceholder, El.text "Edit Book" |> El.el [ El.centerY, El.paddingXY 5 0, width 180 ] ]
+                    [ Style.pencil, El.text "Edit Book" |> El.el [ El.centerY, El.paddingXY 5 0 ] ]
                 )
             ]
         , viewField 40 "Original language" language.language
@@ -185,20 +177,20 @@ viewTranslations books bookId bookTitle =
     let
         addTranslation =
             Route.link (Route.AddTranslation bookId Nothing)
-                [ Border.color Style.nightBlue
+                [ Border.color Style.lightCyan
                 , Border.width 2
                 , El.alignRight
-                , width 220
+                , width 200
                 , Font.size 20
                 , El.height El.fill
                 ]
-                (El.row [ El.height El.fill, El.paddingXY 5 0 ]
-                    [ iconPlaceholder, El.text "Add Translation" |> El.el [ El.centerY, El.paddingXY 5 0, width 180 ] ]
+                (El.row [ El.height El.fill ]
+                    [ Style.plus, El.text "Add Translation" |> El.el [ El.centerY, El.paddingXY 5 0 ] ]
                 )
 
         export book =
             Input.button
-                [ Border.color Style.nightBlue
+                [ Border.color Style.lightCyan
                 , Border.width 2
                 , El.alignRight
                 , Font.size 20
@@ -207,19 +199,19 @@ viewTranslations books bookId bookTitle =
                 { onPress = Just (ClickedExport book bookTitle)
                 , label =
                     El.row [ El.height El.fill, El.paddingXY 5 0 ]
-                        [ iconPlaceholder, El.text "Export" |> El.el [ El.centerY, El.paddingXY 10 0 ] ]
+                        [ Style.download, El.text "Export" |> El.el [ El.centerY, El.paddingXY 10 0 ] ]
                 }
     in
     El.column [ El.spacing 20 ]
         (El.row [ Font.size 20, El.spacing 20, height 45 ]
-            [ El.row [ width 470, El.height El.fill, Background.color Style.grey, El.padding 5, El.spacing 10 ]
-                [ iconPlaceholder, El.el [ El.centerY ] (El.text "Translations") ]
+            [ El.row [ width 502, El.height El.fill, Background.color Style.grey, El.padding 5, El.spacing 10 ]
+                [ Style.languages, El.el [ El.centerY ] (El.text "Translations") ]
             , addTranslation
             ]
             :: List.map
                 (\({ id, language, title } as trBook) ->
-                    El.row []
-                        [ Route.link (Route.EditTranslation bookId id) [] iconPlaceholder
+                    El.row [ height 35 ]
+                        [ Route.link (Route.EditTranslation bookId id) [] Style.smallPencil
                         , viewField 5 language.language title
                         , export trBook
                         ]
@@ -232,11 +224,14 @@ viewField : Int -> String -> String -> Element msg
 viewField offset description value =
     El.row
         [ El.paddingEach { top = 0, left = offset, right = 0, bottom = 0 }
-        , width 455
+        , width 545
+        , height 35
         , El.spacing 20
         , Font.size 18
         ]
-        [ El.el [ Background.color Style.grey, El.centerY, width 160, El.padding 5 ] (El.text description)
+        [ El.text description
+            |> El.el [ El.centerY ]
+            |> El.el [ Background.color Style.grey, width 250, El.height El.fill, El.padding 5 ]
         , El.el [ El.centerY ] (El.text value)
         ]
 

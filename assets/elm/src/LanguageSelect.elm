@@ -236,29 +236,36 @@ view ({ languageDropdown, selectLanguage, languages, toMsg, labelText, showMissi
     let
         color =
             if showMissingField && getLanguage model == Nothing then
-                Style.oistRed
+                Style.lightRed
 
             else
-                Style.nightBlue
+                Style.lightCyan
 
-        label txt =
-            El.text txt
-                |> El.el [ El.centerY, El.centerX ]
-                |> El.el [ El.height (El.px 42), El.width (El.px 60) ]
+        label txt state =
+            El.row [ El.spacing 8, El.height (El.px 42), El.moveDown 6 ]
+                [ case state of
+                    Selected ->
+                        Style.radioFull
+
+                    _ ->
+                        Style.radioEmpty
+                , El.text txt
+                    |> El.el [ El.centerY, El.centerX ]
+                ]
     in
-    Input.radioRow [ El.spacing 31, Font.size 18 ]
+    Input.radioRow [ El.spacing 20, Font.size 18 ]
         { onChange = InputLanguage >> toMsg
         , label =
             Input.labelLeft [ El.paddingEach { top = 0, bottom = 0, left = 0, right = 20 } ]
                 (El.text labelText
                     |> El.el [ El.padding 10, El.centerY, Font.size 18 ]
-                    |> El.el [ Background.color Style.nightBlue, El.height (El.px 42), El.width (El.px 200) ]
+                    |> El.el [ Background.color Style.lightCyan, El.height (El.px 42), El.width (El.px 200) ]
                 )
         , selected = Just selectLanguage
         , options =
-            [ Input.option Japanese (label "Japanese")
-            , Input.option English (label "English")
-            , Input.option Other (viewLanguageDropdown toMsg color languageDropdown languages)
+            [ Input.optionWith Japanese (label "Japanese")
+            , Input.optionWith English (label "English")
+            , Input.optionWith Other (viewLanguageDropdown toMsg color languageDropdown languages)
             ]
         }
 
@@ -273,13 +280,14 @@ maybeToList maybe =
             [ a ]
 
 
-viewLanguageDropdown : (Msg -> msg) -> Color -> LanguageDropdown -> List Language -> Element msg
-viewLanguageDropdown toMsg color dropdown languages =
+viewLanguageDropdown : (Msg -> msg) -> Color -> LanguageDropdown -> List Language -> OptionState -> Element msg
+viewLanguageDropdown toMsg color dropdown languages state =
     let
         languageList text selectedLanguage =
             maybeToList selectedLanguage
                 ++ (languages
-                        |> List.filter (\{ language } -> String.contains (String.toLower text) (String.toLower language))
+                        |> List.filter
+                            (\{ language } -> String.contains (String.toLower text) (String.toLower language))
                         |> List.sortBy .language
                         |> List.take 7
                    )
@@ -300,44 +308,54 @@ viewLanguageDropdown toMsg color dropdown languages =
                            )
                     )
     in
-    Input.search
-        ([ El.width (El.px 280)
-         , Border.width 2
-         , Border.color color
-         , Border.rounded 0
-         ]
-            ++ (case dropdown of
-                    Open ({ text, selectedLanguage } as info) ->
-                        case languageList text selectedLanguage of
-                            [] ->
-                                []
+    El.row [ El.spacing 8, El.height (El.px 42), El.moveDown 6 ]
+        [ case state of
+            Selected ->
+                Style.radioFull
 
-                            list ->
-                                [ list
-                                    |> List.map (viewDropdownLanguage info)
-                                    |> El.column
-                                        [ El.width El.fill
-                                        , Border.width 2
-                                        , Border.color color
-                                        ]
-                                    |> El.below
-                                ]
+            _ ->
+                Style.radioEmpty
+        , Input.search
+            ([ El.width (El.px 262)
+             , El.height El.fill
+             , Border.width 2
+             , Border.color color
+             , Border.rounded 0
+             , El.paddingXY 5 10
+             ]
+                ++ (case dropdown of
+                        Open ({ text, selectedLanguage } as info) ->
+                            case languageList text selectedLanguage of
+                                [] ->
+                                    []
 
-                    _ ->
-                        []
-               )
-        )
-        { text =
-            case dropdown of
-                Closed ->
-                    ""
+                                list ->
+                                    [ list
+                                        |> List.map (viewDropdownLanguage info)
+                                        |> El.column
+                                            [ El.width El.fill
+                                            , Border.width 2
+                                            , Border.color color
+                                            ]
+                                        |> El.below
+                                    ]
 
-                Set { language } ->
-                    language
+                        _ ->
+                            []
+                   )
+            )
+            { text =
+                case dropdown of
+                    Closed ->
+                        ""
 
-                Open { text } ->
-                    text
-        , onChange = EnteredSearchText >> toMsg
-        , placeholder = Just (Input.placeholder [] (El.text "Other..."))
-        , label = Input.labelHidden "Search language"
-        }
+                    Set { language } ->
+                        language
+
+                    Open { text } ->
+                        text
+            , onChange = EnteredSearchText >> toMsg
+            , placeholder = Just (Input.placeholder [] (El.text "Other..."))
+            , label = Input.labelHidden "Search language"
+            }
+        ]

@@ -108,6 +108,7 @@ init context cred bookId =
       , crossAnimation =
             Animation.style
                 [ Animation.rotate (Animation.deg 0)
+                , Animation.fill (Animation.Color 92 164 178 1)
                 , Animation.transformOrigin (Animation.percent 50) (Animation.percent 50) (Animation.percent 0)
                 ]
       , rotateAnimation =
@@ -319,12 +320,20 @@ update msg model =
                     case system.info dnd of
                         Just _ ->
                             Animation.interrupt
-                                [ Animation.to [ Animation.rotate (Animation.deg 45) ] ]
+                                [ Animation.toWithEach
+                                    [ ( Animation.speed { perSecond = 3 }, Animation.rotate (Animation.deg 45) )
+                                    , ( Animation.easing { duration = 175, ease = identity }, Animation.fill (Animation.Color 225 98 107 1) )
+                                    ]
+                                ]
                                 model.crossAnimation
 
                         Nothing ->
                             Animation.interrupt
-                                [ Animation.to [ Animation.rotate (Animation.deg 0) ] ]
+                                [ Animation.toWithEach
+                                    [ ( Animation.speed { perSecond = 3 }, Animation.rotate (Animation.deg 0) )
+                                    , ( Animation.easing { duration = 175, ease = identity }, Animation.fill (Animation.Color 92 164 178 1) )
+                                    ]
+                                ]
                                 model.crossAnimation
             in
             ( { model | dnd = dnd, previews = previews, crossAnimation = cross }
@@ -419,12 +428,6 @@ subscriptions model =
 -- VIEW
 
 
-iconPlaceholder : Element msg
-iconPlaceholder =
-    El.el [ width 25, height 25, Background.color Style.nightBlue ] El.none
-        |> El.el [ El.padding 5 ]
-
-
 view : Model -> { title : String, body : Element Msg }
 view model =
     let
@@ -434,12 +437,12 @@ view model =
                 , Border.color Style.grey
                 , Border.width 2
                 ]
-                (El.row [ El.paddingXY 10 5, height 40 ] [ iconPlaceholder, El.text "Back to Mainpage" ])
+                (El.row [ El.paddingXY 10 5, height 40 ] [ Style.greyLeftArrow, El.text "Back to Mainpage" ])
                 |> El.el [ El.paddingEach { left = 40, right = 0, top = 0, bottom = 0 }, Font.size 20 ]
 
         explanation =
             El.row [ Background.color Style.grey, El.width El.fill, height 45, El.spacing 5, Font.size 20 ]
-                [ iconPlaceholder
+                [ Style.plus
                 , El.text "Please fill the following information and upload photos of the pages"
                 ]
     in
@@ -471,11 +474,11 @@ viewForm ({ dnd, previews, crossAnimation, rotateAnimation, editParams, allImage
         , case ( validBook model, model.saving ) of
             ( Just book, False ) ->
                 Input.button
-                    [ Font.color Style.nightBlue, Border.color Style.nightBlue, Border.width 2, El.alignRight ]
+                    [ Font.color Style.lightCyan, Border.color Style.lightCyan, Border.width 2, El.alignRight ]
                     { onPress = Just (ClickedSave book)
                     , label =
                         El.row [ El.paddingXY 10 5, height 40 ]
-                            [ El.text editParams.button, iconPlaceholder ]
+                            [ El.text editParams.button, Style.rightArrow ]
                     }
 
             _ ->
@@ -484,7 +487,7 @@ viewForm ({ dnd, previews, crossAnimation, rotateAnimation, editParams, allImage
                     { onPress = Just ShowMissingFields
                     , label =
                         El.row [ El.paddingXY 10 5, height 40 ]
-                            [ El.text editParams.button, iconPlaceholder ]
+                            [ El.text editParams.button, Style.greyRightArrow ]
                     }
         ]
 
@@ -493,10 +496,10 @@ viewTextInput : Bool -> String -> String -> (String -> Msg) -> Element Msg
 viewTextInput showMissingFields text label message =
     Input.text
         [ if showMissingFields && String.isEmpty text then
-            Border.color Style.oistRed
+            Border.color Style.lightRed
 
           else
-            Border.color Style.nightBlue
+            Border.color Style.lightCyan
         , Border.rounded 0
         , Border.width 2
         , El.spacing 10
@@ -511,7 +514,7 @@ viewTextInput showMissingFields text label message =
         , text = text
         , placeholder = Nothing
         , label =
-            Input.labelLeft [ El.height El.fill, Background.color Style.nightBlue ]
+            Input.labelLeft [ El.height El.fill, Background.color Style.lightCyan ]
                 (El.el [ width 100, El.padding 10, El.centerY ] (El.text label))
         }
         |> El.el [ El.paddingEach { left = 40, right = 0, top = 0, bottom = 0 } ]
@@ -532,7 +535,7 @@ viewCategories category categories showMissingFields =
                                 [ width 150
                                 , height 25
                                 , if checked then
-                                    Background.color Style.nightBlue
+                                    Background.color Style.lightCyan
 
                                   else
                                     Background.color Style.grey
@@ -544,13 +547,13 @@ viewCategories category categories showMissingFields =
         [ El.row
             ([ Background.color Style.grey, width 250, height 45, Font.size 20 ]
                 ++ (if showMissingFields && category == Maybe.Nothing then
-                        [ Border.color Style.oistRed, Border.width 2 ]
+                        [ Border.color Style.lightRed, Border.width 2 ]
 
                     else
                         []
                    )
             )
-            [ iconPlaceholder, El.text "Select Theme" ]
+            [ Style.horizontalTag, El.text "Select a Theme" ]
         , categories
             |> List.map viewCategory
             |> El.wrappedRow [ El.spacing 12, El.paddingEach { top = 0, bottom = 0, left = 40, right = 0 } ]
@@ -570,7 +573,6 @@ viewPageDownload dnd crossAnimation rotateAnimation allImagesLoaded showMissingF
                 (S.width "80"
                     :: S.height "80"
                     :: S.viewBox "-40 -40 80 80"
-                    :: S.fill "rgb(61, 152, 255)"
                     :: Animation.render rotateAnimation
                 )
                 [ List.map
@@ -601,13 +603,13 @@ viewPageDownload dnd crossAnimation rotateAnimation allImagesLoaded showMissingF
              , Events.onClick ClickedUploadFiles
              ]
                 ++ (if showMissingFields && images == [] then
-                        [ Border.color Style.oistRed, Border.width 2 ]
+                        [ Border.color Style.lightRed, Border.width 2 ]
 
                     else
                         []
                    )
             )
-            [ iconPlaceholder, El.text "Add Pages" ]
+            [ Style.addPage, El.text "Add Pages" ]
             |> El.el [ El.paddingEach { top = 5, bottom = 0, left = 0, right = 0 } ]
         , El.row [ El.spacing 10 ]
             [ List.indexedMap (viewImage loadingDuck dnd allImagesLoaded) images
@@ -619,10 +621,10 @@ viewPageDownload dnd crossAnimation rotateAnimation allImagesLoaded showMissingF
                     ]
                 |> El.el
                     [ if showMissingFields && images == [] then
-                        Border.color Style.oistRed
+                        Border.color Style.lightRed
 
                       else
-                        Border.color Style.nightBlue
+                        Border.color Style.lightCyan
                     , El.padding 10
                     , Border.width 2
                     , hijackOn "dragenter" (Decode.succeed DragEnterUploadBox)
@@ -630,7 +632,7 @@ viewPageDownload dnd crossAnimation rotateAnimation allImagesLoaded showMissingF
                     , hijackOn "dragleave" (Decode.succeed DragLeaveUploadBox)
                     , hijackOn "drop" dropDecoder
                     ]
-            , El.textColumn [ El.alignTop, Font.size 18, El.width El.fill, Font.color Style.nightBlue, El.spacing 10 ]
+            , El.textColumn [ El.alignTop, Font.size 18, El.width El.fill, Font.color Style.lightCyan, El.spacing 10 ]
                 [ El.paragraph [] [ El.text "Click on the + or drag images into the field to upload." ]
                 , El.paragraph [] [ El.text "Drag the images to reorder. Drop on the x to remove." ]
                 ]
@@ -666,7 +668,7 @@ viewImage loadingDuck dnd allImagesLoaded index { preview } =
             [ width 80
             , height 80
             , Border.width 2
-            , Border.color Style.nightBlue
+            , Border.color Style.lightCyan
             ]
 
         viewPreview attrs =
@@ -694,7 +696,7 @@ viewImage loadingDuck dnd allImagesLoaded index { preview } =
                 viewPreview (List.map El.htmlAttribute (system.dropEvents index itemId))
 
             else
-                El.el (Background.color Style.nightBlue :: baseAttributes) El.none
+                El.el (Background.color Style.lightCyan :: baseAttributes) El.none
 
         Nothing ->
             viewPreview (List.map El.htmlAttribute (system.dragEvents index itemId))
@@ -724,7 +726,6 @@ viewAddOrDelete dnd crossAnimation =
         (S.width "80"
             :: S.height "80"
             :: S.viewBox "0 0 80 80"
-            :: S.fill "rgb(61, 152, 255)"
             :: Animation.render crossAnimation
         )
         [ Svg.g []

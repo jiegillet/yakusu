@@ -14,6 +14,7 @@ import RemoteData exposing (RemoteData(..), WebData)
 import Route
 import Style
 import Time exposing (Month(..), Weekday(..))
+import Url.Builder
 
 
 type alias Context =
@@ -51,9 +52,12 @@ viewHeaderHelper { cred, windowWidth } logout =
         ]
         [ Route.link Route.Books
             [ width 1000, El.paddingXY 40 0, El.centerX ]
-            (El.paragraph [ El.centerY ]
-                [ El.text "Yakusu" |> El.el [ Font.size 36, Font.family [ Font.typeface "clear_sans_mediumregular" ] ]
-                , El.text " - the OIST Tedako Book Translation Interface" |> El.el [ Font.size 24 ]
+            (El.row []
+                [ El.image [ height 32, El.moveUp 3.5 ]
+                    { src = Url.Builder.absolute [ "images", "Yakusu.svg" ] []
+                    , description = "Yakusu logo"
+                    }
+                , El.text " - the OIST Tedako Book Translation Interface" |> El.el [ Font.size 24, El.alignBottom ]
                 ]
             )
         ]

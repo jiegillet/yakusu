@@ -786,19 +786,13 @@ view model =
     }
 
 
-iconPlaceholder : Element msg
-iconPlaceholder =
-    El.el [ width 25, height 25, Background.color Style.nightBlue ] El.none
-        |> El.el [ El.padding 5 ]
-
-
 saveAndReturn : msg -> Element msg
 saveAndReturn save =
     Input.button [ El.paddingXY 70 0 ]
         { onPress = Just save
         , label =
-            El.row [ El.paddingXY 10 5, height 40 ] [ iconPlaceholder, El.text "Save all and Return" ]
-                |> El.el [ Font.color Style.grey, Border.color Style.grey, Border.width 2, Font.size 20 ]
+            El.row [ El.alignLeft, height 40 ] [ Style.greyLeftArrow, El.text "Save all and Return" ]
+                |> El.el [ Font.color Style.grey, Border.color Style.grey, Border.width 2, Font.size 20, width 230 ]
         }
 
 
@@ -806,11 +800,11 @@ viewForm : Model -> String -> String -> Element Msg
 viewForm ({ title, author, language, translator, notes, mode } as model) originalTitle originalAuthor =
     let
         explanation =
-            El.row [ Background.color Style.grey, El.width El.fill, height 45, El.spacing 5, Font.size 20 ]
-                [ iconPlaceholder
+            El.row [ Font.size 20 ]
+                [ Style.information
                 , El.text "Please fill the following information before starting your translation"
                 ]
-                |> El.el [ El.paddingEach { top = 20, bottom = 30, left = 0, right = 0 }, El.width El.fill ]
+                |> El.el [ El.paddingEach { top = 20, bottom = 0, left = 0, right = 0 } ]
 
         saveButton =
             Input.button [ El.alignRight, height 25, width 100 ]
@@ -820,7 +814,7 @@ viewForm ({ title, author, language, translator, notes, mode } as model) origina
                         , label =
                             El.text "Save"
                                 |> El.el [ El.centerX, El.centerY ]
-                                |> El.el [ Background.color Style.nightBlue, El.height El.fill, El.width El.fill ]
+                                |> El.el [ Background.color Style.lightCyan, El.height El.fill, El.width El.fill ]
                         }
 
                     _ ->
@@ -840,23 +834,22 @@ viewForm ({ title, author, language, translator, notes, mode } as model) origina
                 [ -- Number on the left
                   El.text "0"
                     |> El.el [ El.centerX, El.centerY, Font.color Style.white, Font.size 30 ]
-                    |> El.el [ width 55, height 45, Background.color Style.nightBlue, El.alignRight ]
+                    |> El.el [ width 55, height 45, Background.color Style.lightCyan, El.alignRight ]
                     |> El.el [ El.paddingXY 0 25, width 70, El.alignTop ]
 
                 -- Form fields
                 , El.column [ El.spacing 20 ]
-                    [ El.column [ El.spacing 20, Border.width 2, Border.color Style.nightBlue, El.padding 20, width 1000 ]
+                    [ El.column [ El.spacing 20, Border.width 2, Border.color Style.lightCyan, El.padding 20, width 1000 ]
                         [ explanation
                         , El.row [ width 792, El.height El.fill, Background.color Style.grey, El.padding 5, El.spacing 10 ]
-                            [ iconPlaceholder
-                            , El.el [ El.centerY, Font.size 20 ]
-                                (String.concat [ "\"", originalTitle, "\", by \"", originalAuthor, "\"" ] |> El.text)
+                            [ Style.book
+                            , El.el [ El.centerY, Font.size 20 ] (El.text originalTitle)
                             ]
                         , LanguageSelect.view language
                             |> El.el [ El.paddingEach { left = 40, right = 0, top = 0, bottom = 0 } ]
-                        , viewTextInput title "Translated Title" InputTitle model.showMissingFields
-                        , viewTextInput author "Translated Author(s)" InputAuthor model.showMissingFields
-                        , viewTextInput translator "Name of Translator(s)" InputTranslator model.showMissingFields
+                        , viewTextInput (Just originalTitle) title "Translated Title" InputTitle model.showMissingFields
+                        , viewTextInput (Just originalAuthor) author "Translated Author(s)" InputAuthor model.showMissingFields
+                        , viewTextInput Nothing translator "Name of Translator(s)" InputTranslator model.showMissingFields
                         , saveButton
                         ]
                     ]
@@ -865,12 +858,12 @@ viewForm ({ title, author, language, translator, notes, mode } as model) origina
                 , (case mode of
                     EditTranslationBook _ ->
                         El.el [ El.alignRight, El.alignBottom, Element.Events.onClick ClickedSaveBookInfo ]
-                            iconPlaceholder
+                            Style.bigRightArrow
 
                     _ ->
                         El.none
                   )
-                    |> El.el [ width 70, height 393, El.alignTop ]
+                    |> El.el [ width 70, height 411, El.alignTop ]
                 ]
 
             -- Notes
@@ -880,14 +873,14 @@ viewForm ({ title, author, language, translator, notes, mode } as model) origina
         ]
 
 
-viewTextInput : String -> String -> (String -> Msg) -> Bool -> Element Msg
-viewTextInput text label message showMissingFields =
+viewTextInput : Maybe String -> String -> String -> (String -> Msg) -> Bool -> Element Msg
+viewTextInput placeholder text label message showMissingFields =
     Input.text
         [ if showMissingFields && String.isEmpty text then
-            Border.color Style.oistRed
+            Border.color Style.lightRed
 
           else
-            Border.color Style.nightBlue
+            Border.color Style.lightCyan
         , Border.rounded 0
         , Border.width 2
         , width 532
@@ -900,10 +893,10 @@ viewTextInput text label message showMissingFields =
         ]
         { onChange = message
         , text = text
-        , placeholder = Nothing
+        , placeholder = Maybe.map (El.text >> Input.placeholder []) placeholder
         , label =
             Input.labelLeft
-                [ El.height El.fill, Background.color Style.nightBlue ]
+                [ El.height El.fill, Background.color Style.lightCyan ]
                 (El.el [ width 200, El.padding 10, El.centerY ] (El.text label))
         }
         |> El.el [ El.paddingEach { left = 40, right = 0, top = 0, bottom = 0 } ]
@@ -913,13 +906,13 @@ viewTranslate : Model -> ZipList Page -> Element Msg
 viewTranslate model pages =
     let
         leftArrow =
-            El.el [ Element.Events.onClick ClickedPrevPage, El.alignLeft ] iconPlaceholder
+            El.el [ Element.Events.onClick ClickedPrevPage, El.alignLeft ] Style.bigLeftArrow
                 |> El.el [ width 70, El.centerY ]
 
         rightArrow =
             El.el [ Element.Events.onClick ClickedNextPage, El.alignRight ]
                 (if not (ZipList.currentIndex pages == ZipList.length pages - 1) then
-                    iconPlaceholder
+                    Style.bigRightArrow
 
                  else
                     El.none
@@ -927,12 +920,12 @@ viewTranslate model pages =
                 |> El.el [ width 70, El.centerY ]
 
         explanation =
-            El.row [ width 575, height 90, Border.color Style.nightBlue, Border.width 2, Font.color Style.nightBlue ]
-                [ iconPlaceholder
-                , El.paragraph [ El.padding 10 ]
+            El.row [ width 575, height 90, Border.color Style.lightCyan, Border.width 2, Font.color Style.lightCyan ]
+                [ Style.draw
+                , El.paragraph [ El.paddingXY 0 5 ]
                     [ El.text "Mark a section of text on the page by drawing with your mouse or finger" ]
-                , iconPlaceholder
-                , El.paragraph [ El.padding 10 ]
+                , Style.languageBox |> El.el [ El.moveLeft 4 ]
+                , El.paragraph [ El.paddingXY 0 5 ]
                     [ El.text "Then add the translation into the text field below with the matching color" ]
                 ]
     in
@@ -947,7 +940,7 @@ viewTranslate model pages =
                 |> String.fromInt
                 |> El.text
                 |> El.el [ El.centerX, El.centerY, Font.color Style.white, Font.size 30 ]
-                |> El.el [ width 57, height 45, Background.color Style.nightBlue, El.moveRight 2 ]
+                |> El.el [ width 57, height 45, Background.color Style.lightCyan, El.moveRight 2 ]
                 |> El.el [ El.paddingXY 0 25, El.alignRight ]
                 |> El.el [ width 70, El.alignTop ]
 
@@ -1147,17 +1140,17 @@ viewButtons mode pageId =
 
         newTranslation trBookId =
             Input.button
-                [ width 220, height 40, Font.size 20, Background.color Style.nightBlue ]
+                [ width 220, height 40, Font.size 20, Background.color Style.lightCyan ]
                 { onPress = Just (ClickedNewTranslation trBookId pageId)
                 , label =
-                    El.row [ El.height El.fill, El.paddingXY 10 0 ]
-                        [ iconPlaceholder, El.text "Add Translation" |> El.el [ El.centerY ] ]
+                    El.row [ El.height El.fill, El.alignLeft ]
+                        [ Style.whitePlus, El.text "Add Translation" |> El.el [ El.centerY ] ]
                 }
 
         saveButton =
             Input.button []
                 { onPress = Just ClickedSaveTranslation
-                , label = El.el [ Background.color Style.nightBlue, El.paddingXY 20 10 ] (El.text "Save")
+                , label = El.el [ Background.color Style.lightCyan, El.paddingXY 20 10 ] (El.text "Save")
                 }
 
         resetButton =

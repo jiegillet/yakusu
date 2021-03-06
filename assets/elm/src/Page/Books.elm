@@ -49,6 +49,7 @@ type alias Model =
     , books : GraphQLData (List Book)
     , categories : GraphQLData (List Category)
     , checkedCategories : List Category
+    , showCategories : Bool
     , tableOrdering : ( Column, Ordering )
     }
 
@@ -60,6 +61,7 @@ init context cred =
       , books = Loading
       , categories = Loading
       , checkedCategories = []
+      , showCategories = False
       , tableOrdering = ( Title, Ascending )
       }
     , Cmd.batch [ requestBooks cred, requestCategories cred ]
@@ -87,7 +89,7 @@ type Column
     | Language
     | AvailableTranslation
     | NeededTranslation
-    | Topic
+    | Theme
 
 
 
@@ -99,6 +101,7 @@ type Msg
     | GotCategories (GraphQLData (List Category))
     | CheckedTopic Category Bool
     | ClickedOrder Column
+    | ClickedOnCategories
 
 
 update : Msg -> Model -> ( Model, Cmd msg )
@@ -138,15 +141,12 @@ update msg model =
             , Cmd.none
             )
 
+        ClickedOnCategories ->
+            ( { model | showCategories = not model.showCategories }, Cmd.none )
+
 
 
 -- VIEW
-
-
-iconPlaceholder : Element msg
-iconPlaceholder =
-    El.el [ width 25, height 25, Background.color Style.nightBlue ] El.none
-        |> El.el [ El.padding 5 ]
 
 
 view : Model -> { title : String, body : Element Msg }
@@ -163,16 +163,16 @@ view model =
                         ]
                     , El.row [ El.spacing 10, Font.size 20 ]
                         [ El.row [ Background.color Style.grey, width 470, height 45 ]
-                            [ iconPlaceholder
-                            , El.text "List of available Books"
+                            [ Style.listIcon
+                            , El.text "List of available books"
                             ]
                         , Route.link Route.AddBook
-                            [ Background.color Style.nightBlue
+                            [ Background.color Style.lightCyan
                             , width 210
                             , El.height (El.px 45)
                             ]
-                            (El.row []
-                                [ iconPlaceholder
+                            (El.row [ El.centerX ]
+                                [ Style.whitePlus
                                 , El.text "Add Book"
                                     |> El.el
                                         [ El.centerX
@@ -181,7 +181,7 @@ view model =
                                 ]
                             )
                         ]
-                    , viewCategories model.checkedCategories categories
+                    , viewCategories model.checkedCategories categories model.showCategories
                     , viewBooks model.checkedCategories model.tableOrdering books
                     ]
 
@@ -196,8 +196,8 @@ view model =
     }
 
 
-viewCategories : List Category -> List Category -> Element Msg
-viewCategories checkedCategories categories =
+viewCategories : List Category -> List Category -> Bool -> Element Msg
+viewCategories checkedCategories categories showCategories =
     let
         viewCategory ({ name } as category) =
             Input.checkbox [ width 150, height 25 ]
@@ -211,7 +211,7 @@ viewCategories checkedCategories categories =
                                 [ width 150
                                 , height 25
                                 , if checked then
-                                    Background.color Style.nightBlue
+                                    Background.color Style.lightCyan
 
                                   else
                                     Background.color Style.grey
@@ -220,13 +220,21 @@ viewCategories checkedCategories categories =
                 }
     in
     El.column [ El.spacing 20 ]
-        [ El.row [ Background.color Style.grey, width 250, height 45, Font.size 20 ]
-            [ iconPlaceholder
+        [ El.row [ Background.color Style.grey, width 250, height 45, Font.size 20, Events.onClick ClickedOnCategories ]
+            [ if showCategories then
+                Style.verticalTag
+
+              else
+                Style.horizontalTag
             , El.text "Filter by Theme"
             ]
-        , categories
-            |> List.map viewCategory
-            |> El.wrappedRow [ El.paddingEach { top = 0, bottom = 0, left = 40, right = 0 }, El.spacing 12 ]
+        , if showCategories then
+            categories
+                |> List.map viewCategory
+                |> El.wrappedRow [ El.paddingEach { top = 0, bottom = 0, left = 40, right = 0 }, El.spacing 12 ]
+
+          else
+            El.none
         ]
 
 
@@ -265,7 +273,7 @@ viewBooks checkedCategories ( column, order ) books =
                 NeededTranslation ->
                     neededLanguages >> List.map .id >> String.concat
 
-                Topic ->
+                Theme ->
                     .category >> .name
 
         neededLanguages { language, translations } =
@@ -280,29 +288,26 @@ viewBooks checkedCategories ( column, order ) books =
                 |> List.filter isNeeded
 
         header title col =
-            El.row [ El.centerY, El.paddingXY 5 15, El.spacing 5, Events.onClick (ClickedOrder col) ]
-                [ El.paragraph [ El.width El.shrink ]
+            El.row [ height 50, Events.onClick (ClickedOrder col) ]
+                [ case ( col == column, order ) of
+                    ( False, _ ) ->
+                        Style.upDownArrow
+
+                    ( True, Ascending ) ->
+                        Style.upArrow
+
+                    ( True, Descending ) ->
+                        Style.downArrow
+                , El.paragraph [ El.width El.shrink ]
                     [ El.text title
                         |> El.el [ Font.size 20, height 65 ]
                     ]
-                , (case ( col == column, order ) of
-                    ( False, _ ) ->
-                        El.text "⇵"
-
-                    ( True, Ascending ) ->
-                        El.text "↑"
-
-                    ( True, Descending ) ->
-                        El.text "↓"
-                  )
-                    |> El.el [ width 2 ]
                 ]
 
         content i element =
             El.paragraph [ El.paddingXY 5 8, El.centerY ] [ element ]
                 |> El.el
-                    [ El.height El.fill
-                    , El.width El.fill
+                    [ El.height (El.minimum 50 El.fill)
                     , if modBy 2 i == 0 then
                         Background.color Style.grey
 
@@ -313,29 +318,22 @@ viewBooks checkedCategories ( column, order ) books =
     El.indexedTable [ Font.size 16 ]
         { data = data
         , columns =
-            [ { header = El.none
+            [ { header = El.el [ height 50 ] El.none
               , width = El.shrink
               , view =
-                    \_ { id } ->
-                        Route.link (Route.BookDetail id False) [] iconPlaceholder
-                            |> El.el [ El.centerY ]
+                    \_ { id } -> Route.link (Route.BookDetail id False) [ El.centerY ] Style.smallPencil
               }
             , { header = header "Title" Title
-              , width = El.fillPortion 2
-              , view =
-                    \i { title } ->
-                        content i (El.text title)
+              , width = El.fill
+              , view = \i { title } -> content i (El.text title)
               }
             , { header = header "Author" Author
-              , width = El.fillPortion 2
-              , view =
-                    \i { author } -> content i (El.text author)
+              , width = El.fill
+              , view = \i { author } -> content i (El.text author)
               }
             , { header = header "Original Language" Language
               , width = El.fill
-              , view =
-                    \i { language } ->
-                        content i (El.text language.language)
+              , view = \i { language } -> content i (El.text language.language)
               }
             , { header = header "Translations available" AvailableTranslation
               , width = El.fill
@@ -351,7 +349,7 @@ viewBooks checkedCategories ( column, order ) books =
                             |> El.column []
                             |> content i
               }
-            , { header = header "Translation Needed" NeededTranslation
+            , { header = header "Translations Needed" NeededTranslation
               , width = El.fill
               , view =
                     \i ({ id } as book) ->
@@ -365,7 +363,7 @@ viewBooks checkedCategories ( column, order ) books =
                             |> El.column []
                             |> content i
               }
-            , { header = header "Topic" Topic
+            , { header = header "Theme" Theme
               , width = El.fill
               , view =
                     \i { category } ->

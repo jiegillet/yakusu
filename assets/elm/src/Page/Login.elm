@@ -131,7 +131,8 @@ view model =
                 El.column [ El.spacing 25, El.padding 30 ]
                     [ El.el [ Font.bold, Font.size 20 ] (El.text "Sign in")
                     , viewCandidateLogin model.loginInfo
-                    , Common.viewErrors model.cred
+
+                    -- , Common.viewErrors model.cred
                     ]
             ]
     }
@@ -164,10 +165,10 @@ viewCandidateLogin ({ username, password } as login) =
                     []
             , label =
                 El.text "Forgot your password?"
-                    |> El.el [ Font.underline, Font.color Style.oistRed ]
+                    |> El.el [ Font.underline, Font.color Style.lightRed ]
             }
         , Input.button
-            [ Background.color Style.oistRed
+            [ Background.color Style.lightRed
             , El.spacing 5
             , El.paddingXY 40 5
             , Font.color Style.white
