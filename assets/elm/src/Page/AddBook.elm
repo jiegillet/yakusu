@@ -494,12 +494,16 @@ viewForm ({ dnd, previews, crossAnimation, rotateAnimation, editParams, allImage
 
 viewTextInput : Bool -> String -> String -> (String -> Msg) -> Element Msg
 viewTextInput showMissingFields text label message =
-    Input.text
-        [ if showMissingFields && String.isEmpty text then
-            Border.color Style.lightRed
+    let
+        color =
+            if showMissingFields && String.isEmpty text then
+                Style.lightRed
 
-          else
-            Border.color Style.lightCyan
+            else
+                Style.lightCyan
+    in
+    Input.text
+        [ Border.color color
         , Border.rounded 0
         , Border.width 2
         , El.spacing 10
@@ -514,7 +518,7 @@ viewTextInput showMissingFields text label message =
         , text = text
         , placeholder = Nothing
         , label =
-            Input.labelLeft [ El.height El.fill, Background.color Style.lightCyan ]
+            Input.labelLeft [ El.height El.fill, Background.color color, Font.color Style.white ]
                 (El.el [ width 100, El.padding 10, El.centerY ] (El.text label))
         }
         |> El.el [ El.paddingEach { left = 40, right = 0, top = 0, bottom = 0 } ]
@@ -531,29 +535,36 @@ viewCategories category categories showMissingFields =
                     \checked ->
                         El.text name
                             |> El.el [ El.centerX, El.centerY, Font.size 16 ]
+                            |> El.el [ width 150, height 25 ]
                             |> El.el
-                                [ width 150
-                                , height 25
-                                , if checked then
-                                    Background.color Style.lightCyan
+                                (if checked then
+                                    [ Background.color Style.lightCyan, Font.color Style.white ]
 
-                                  else
-                                    Background.color Style.grey
-                                ]
+                                 else
+                                    [ Background.color Style.grey ]
+                                )
                 , label = Input.labelHidden name
                 }
     in
     El.column [ El.spacing 20 ]
         [ El.row
-            ([ Background.color Style.grey, width 250, height 45, Font.size 20 ]
-                ++ (if showMissingFields && category == Maybe.Nothing then
-                        [ Border.color Style.lightRed, Border.width 2 ]
+            (width 250
+                :: height 45
+                :: Font.size 20
+                :: (if showMissingFields && category == Maybe.Nothing then
+                        [ Background.color Style.lightRed, Font.color Style.white ]
 
                     else
-                        []
+                        [ Background.color Style.grey ]
                    )
             )
-            [ Style.horizontalTag, El.text "Select a Theme" ]
+            [ if showMissingFields && category == Maybe.Nothing then
+                Style.whiteHorizontalTag
+
+              else
+                Style.horizontalTag
+            , El.text "Select a Theme"
+            ]
         , categories
             |> List.map viewCategory
             |> El.wrappedRow [ El.spacing 12, El.paddingEach { top = 0, bottom = 0, left = 40, right = 0 } ]
@@ -596,17 +607,15 @@ viewPageDownload dnd crossAnimation rotateAnimation allImagesLoaded showMissingF
     in
     El.column [ El.spacing 20, El.inFront (ghostView dnd images) ]
         [ El.row
-            ([ Background.color Style.grey
-             , width 250
-             , height 45
-             , Font.size 20
-             , Events.onClick ClickedUploadFiles
-             ]
-                ++ (if showMissingFields && images == [] then
-                        [ Border.color Style.lightRed, Border.width 2 ]
+            (width 250
+                :: height 45
+                :: Font.size 20
+                :: Events.onClick ClickedUploadFiles
+                :: (if showMissingFields && images == [] then
+                        [ Background.color Style.lightRed, Font.color Style.white ]
 
                     else
-                        []
+                        [ Background.color Style.grey ]
                    )
             )
             [ Style.addPage, El.text "Add Pages" ]

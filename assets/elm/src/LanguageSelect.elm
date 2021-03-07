@@ -234,21 +234,21 @@ subscriptions model =
 view : Model msg -> Element msg
 view ({ languageDropdown, selectLanguage, languages, toMsg, labelText, showMissingField } as model) =
     let
-        color =
+        ( color, iconSelected, iconEmpty ) =
             if showMissingField && getLanguage model == Nothing then
-                Style.lightRed
+                ( Style.lightRed, Style.radioFullRed, Style.radioEmptyRed )
 
             else
-                Style.lightCyan
+                ( Style.lightCyan, Style.radioFull, Style.radioEmpty )
 
         label txt state =
             El.row [ El.spacing 8, El.height (El.px 42), El.moveDown 6 ]
                 [ case state of
                     Selected ->
-                        Style.radioFull
+                        iconSelected
 
                     _ ->
-                        Style.radioEmpty
+                        iconEmpty
                 , El.text txt
                     |> El.el [ El.centerY, El.centerX ]
                 ]
@@ -258,14 +258,14 @@ view ({ languageDropdown, selectLanguage, languages, toMsg, labelText, showMissi
         , label =
             Input.labelLeft [ El.paddingEach { top = 0, bottom = 0, left = 0, right = 20 } ]
                 (El.text labelText
-                    |> El.el [ El.padding 10, El.centerY, Font.size 18 ]
-                    |> El.el [ Background.color Style.lightCyan, El.height (El.px 42), El.width (El.px 200) ]
+                    |> El.el [ El.padding 10, El.centerY, Font.size 18, Font.color Style.white ]
+                    |> El.el [ Background.color color, El.height (El.px 42), El.width (El.px 200) ]
                 )
         , selected = Just selectLanguage
         , options =
             [ Input.optionWith Japanese (label "Japanese")
             , Input.optionWith English (label "English")
-            , Input.optionWith Other (viewLanguageDropdown toMsg color languageDropdown languages)
+            , Input.optionWith Other (viewLanguageDropdown toMsg ( color, iconSelected, iconEmpty ) languageDropdown languages)
             ]
         }
 
@@ -280,8 +280,8 @@ maybeToList maybe =
             [ a ]
 
 
-viewLanguageDropdown : (Msg -> msg) -> Color -> LanguageDropdown -> List Language -> OptionState -> Element msg
-viewLanguageDropdown toMsg color dropdown languages state =
+viewLanguageDropdown : (Msg -> msg) -> ( Color, Element msg, Element msg ) -> LanguageDropdown -> List Language -> OptionState -> Element msg
+viewLanguageDropdown toMsg ( color, iconSelected, iconEmpty ) dropdown languages state =
     let
         languageList text selectedLanguage =
             maybeToList selectedLanguage
@@ -311,10 +311,10 @@ viewLanguageDropdown toMsg color dropdown languages state =
     El.row [ El.spacing 8, El.height (El.px 42), El.moveDown 6 ]
         [ case state of
             Selected ->
-                Style.radioFull
+                iconSelected
 
             _ ->
-                Style.radioEmpty
+                iconEmpty
         , Input.search
             ([ El.width (El.px 262)
              , El.height El.fill

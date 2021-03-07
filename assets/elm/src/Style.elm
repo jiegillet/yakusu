@@ -111,6 +111,11 @@ horizontalTag =
     makeIcon "TagHor_C.svg" "horizontal tag icon"
 
 
+whiteHorizontalTag : Element msg
+whiteHorizontalTag =
+    makeIcon "TagHor_W.svg" "white horizontal tag icon"
+
+
 verticalTag : Element msg
 verticalTag =
     makeIcon "TagVer_C.svg" "vertical tag icon"

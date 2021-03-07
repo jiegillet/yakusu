@@ -813,7 +813,7 @@ viewForm ({ title, author, language, translator, notes, mode } as model) origina
                         { onPress = Just ClickedSaveBookInfo
                         , label =
                             El.text "Save"
-                                |> El.el [ El.centerX, El.centerY ]
+                                |> El.el [ El.centerX, El.centerY, Font.color Style.white ]
                                 |> El.el [ Background.color Style.lightCyan, El.height El.fill, El.width El.fill ]
                         }
 
@@ -838,7 +838,7 @@ viewForm ({ title, author, language, translator, notes, mode } as model) origina
                     |> El.el [ El.paddingXY 0 25, width 70, El.alignTop ]
 
                 -- Form fields
-                , El.column [ El.spacing 20 ]
+                , El.column [ El.spacing 20, El.htmlAttribute <| Attributes.style "z-index" "0" ]
                     [ El.column [ El.spacing 20, Border.width 2, Border.color Style.lightCyan, El.padding 20, width 1000 ]
                         [ explanation
                         , El.row [ width 792, El.height El.fill, Background.color Style.grey, El.padding 5, El.spacing 10 ]
@@ -846,7 +846,10 @@ viewForm ({ title, author, language, translator, notes, mode } as model) origina
                             , El.el [ El.centerY, Font.size 20 ] (El.text originalTitle)
                             ]
                         , LanguageSelect.view language
-                            |> El.el [ El.paddingEach { left = 40, right = 0, top = 0, bottom = 0 } ]
+                            |> El.el
+                                [ El.paddingEach { left = 40, right = 0, top = 0, bottom = 0 }
+                                , El.htmlAttribute <| Attributes.style "z-index" "10"
+                                ]
                         , viewTextInput (Just originalTitle) title "Translated Title" InputTitle model.showMissingFields
                         , viewTextInput (Just originalAuthor) author "Translated Author(s)" InputAuthor model.showMissingFields
                         , viewTextInput Nothing translator "Name of Translator(s)" InputTranslator model.showMissingFields
@@ -875,12 +878,16 @@ viewForm ({ title, author, language, translator, notes, mode } as model) origina
 
 viewTextInput : Maybe String -> String -> String -> (String -> Msg) -> Bool -> Element Msg
 viewTextInput placeholder text label message showMissingFields =
-    Input.text
-        [ if showMissingFields && String.isEmpty text then
-            Border.color Style.lightRed
+    let
+        color =
+            if showMissingFields && String.isEmpty text then
+                Style.lightRed
 
-          else
-            Border.color Style.lightCyan
+            else
+                Style.lightCyan
+    in
+    Input.text
+        [ Border.color color
         , Border.rounded 0
         , Border.width 2
         , width 532
@@ -893,10 +900,10 @@ viewTextInput placeholder text label message showMissingFields =
         ]
         { onChange = message
         , text = text
-        , placeholder = Maybe.map (El.text >> Input.placeholder []) placeholder
+        , placeholder = Maybe.map (El.text >> Input.placeholder [ El.moveUp 2, El.moveLeft 1 ]) placeholder
         , label =
             Input.labelLeft
-                [ El.height El.fill, Background.color Style.lightCyan ]
+                [ El.height El.fill, Background.color color, Font.color Style.white ]
                 (El.el [ width 200, El.padding 10, El.centerY ] (El.text label))
         }
         |> El.el [ El.paddingEach { left = 40, right = 0, top = 0, bottom = 0 } ]
