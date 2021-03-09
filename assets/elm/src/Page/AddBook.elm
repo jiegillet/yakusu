@@ -9,7 +9,7 @@ import Bytes.Decode
 import Bytes.Encode
 import Common exposing (Context, height, width)
 import DnDList
-import Element as El exposing (Attribute, Element)
+import Element as El exposing (Attribute, Color, Element)
 import Element.Background as Background
 import Element.Border as Border
 import Element.Events as Events
@@ -108,7 +108,7 @@ init context cred bookId =
       , crossAnimation =
             Animation.style
                 [ Animation.rotate (Animation.deg 0)
-                , Animation.fill (Animation.Color 92 164 178 1)
+                , Animation.fill (animationColor Style.lightCyan)
                 , Animation.transformOrigin (Animation.percent 50) (Animation.percent 50) (Animation.percent 0)
                 ]
       , rotateAnimation =
@@ -155,6 +155,15 @@ config =
 system : DnDList.System Image Msg
 system =
     DnDList.create config DnDMsg
+
+
+animationColor : Color -> Animation.Color
+animationColor color =
+    let
+        { red, green, blue, alpha } =
+            El.toRgb color
+    in
+    { red = round (255 * red), green = round (255 * green), blue = round (255 * blue), alpha = alpha }
 
 
 
@@ -277,6 +286,10 @@ update msg model =
                             ]
                         ]
                         model.rotateAnimation
+                , crossAnimation =
+                    Animation.interrupt
+                        [ Animation.set [ Animation.fill (animationColor Style.lightCyan) ] ]
+                        model.crossAnimation
               }
             , filteredFiles
                 |> List.indexedMap (\index -> uploadImage model.cred (index + offset))
@@ -322,7 +335,9 @@ update msg model =
                             Animation.interrupt
                                 [ Animation.toWithEach
                                     [ ( Animation.speed { perSecond = 3 }, Animation.rotate (Animation.deg 45) )
-                                    , ( Animation.easing { duration = 175, ease = identity }, Animation.fill (Animation.Color 225 98 107 1) )
+                                    , ( Animation.easing { duration = 175, ease = identity }
+                                      , Animation.fill (animationColor Style.lightRed)
+                                      )
                                     ]
                                 ]
                                 model.crossAnimation
@@ -331,7 +346,15 @@ update msg model =
                             Animation.interrupt
                                 [ Animation.toWithEach
                                     [ ( Animation.speed { perSecond = 3 }, Animation.rotate (Animation.deg 0) )
-                                    , ( Animation.easing { duration = 175, ease = identity }, Animation.fill (Animation.Color 92 164 178 1) )
+                                    , ( Animation.easing { duration = 175, ease = identity }
+                                      , Animation.fill
+                                            (if model.showMissingFields && model.previews == [] then
+                                                animationColor Style.lightRed
+
+                                             else
+                                                animationColor Style.lightCyan
+                                            )
+                                      )
                                     ]
                                 ]
                                 model.crossAnimation
@@ -360,7 +383,17 @@ update msg model =
             ( { model | saving = True }, createBook model.cred book )
 
         ShowMissingFields ->
-            ( { model | showMissingFields = True, language = LanguageSelect.showMissingFields model.language }
+            ( { model
+                | showMissingFields = True
+                , language = LanguageSelect.showMissingFields model.language
+                , crossAnimation =
+                    if model.previews == [] then
+                        Animation.interrupt [ Animation.set [ Animation.fill (animationColor Style.lightRed) ] ]
+                            model.crossAnimation
+
+                    else
+                        model.crossAnimation
+              }
             , Cmd.none
             )
 
@@ -618,7 +651,13 @@ viewPageDownload dnd crossAnimation rotateAnimation allImagesLoaded showMissingF
                         [ Background.color Style.grey ]
                    )
             )
-            [ Style.addPage, El.text "Add Pages" ]
+            [ if showMissingFields && images == [] then
+                Style.addPageWhite
+
+              else
+                Style.addPage
+            , El.text "Add Pages"
+            ]
             |> El.el [ El.paddingEach { top = 5, bottom = 0, left = 0, right = 0 } ]
         , El.row [ El.spacing 10 ]
             [ List.indexedMap (viewImage loadingDuck dnd allImagesLoaded) images

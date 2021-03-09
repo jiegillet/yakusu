@@ -151,6 +151,11 @@ addPage =
     makeIcon "Pages_C.svg" "Add a page icon"
 
 
+addPageWhite : Element msg
+addPageWhite =
+    makeIcon "Pages_W.svg" "White add a page icon"
+
+
 radioFull : Element msg
 radioFull =
     El.image
