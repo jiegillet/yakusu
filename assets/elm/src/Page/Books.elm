@@ -4,6 +4,7 @@ import Api exposing (Cred, GraphQLData)
 import Common exposing (Context, height, width)
 import Element as El exposing (Element, column)
 import Element.Background as Background
+import Element.Border as Border
 import Element.Events as Events
 import Element.Font as Font
 import Element.Input as Input
@@ -161,15 +162,16 @@ view model =
                         [ El.text "Welcome to "
                         , El.text "Yakusu" |> El.el [ Font.family [ Font.typeface "clear_sans_mediumregular" ] ]
                         ]
-                    , El.row [ El.spacing 10, Font.size 20 ]
+                    , El.row [ Font.size 20, width 1000 ]
                         [ El.row [ Background.color Style.grey, width 470, height 45 ]
                             [ Style.listIcon
                             , El.text "List of available books"
                             ]
                         , Route.link Route.AddBook
                             [ Background.color Style.lightCyan
-                            , width 210
+                            , width 150
                             , El.height (El.px 45)
+                            , El.alignRight
                             ]
                             (El.row [ El.centerX ]
                                 [ Style.whitePlus
@@ -220,7 +222,15 @@ viewCategories checkedCategories categories showCategories =
                 }
     in
     El.column [ El.spacing 20 ]
-        [ El.row [ Background.color Style.grey, width 250, height 45, Font.size 20, Events.onClick ClickedOnCategories ]
+        [ El.row
+            [ Border.width 2
+            , Border.color Style.lightCyan
+            , Font.color Style.lightCyan
+            , width 250
+            , height 45
+            , Font.size 20
+            , Events.onClick ClickedOnCategories
+            ]
             [ if showCategories then
                 Style.verticalTag
 
@@ -288,20 +298,25 @@ viewBooks checkedCategories ( column, order ) books =
                 |> List.filter isNeeded
 
         header title col =
-            El.row [ height 50, Events.onClick (ClickedOrder col) ]
-                [ case ( col == column, order ) of
-                    ( False, _ ) ->
-                        Style.upDownArrow
+            El.paragraph
+                [ El.width El.shrink
+                , El.paddingXY 5 0
+                , height 50
+                , Events.onClick (ClickedOrder col)
+                , El.onLeft
+                    (case ( col == column, order ) of
+                        ( False, _ ) ->
+                            Style.upDownArrow
 
-                    ( True, Ascending ) ->
-                        Style.upArrow
+                        ( True, Ascending ) ->
+                            Style.upArrow
 
-                    ( True, Descending ) ->
-                        Style.downArrow
-                , El.paragraph [ El.width El.shrink ]
-                    [ El.text title
-                        |> El.el [ Font.size 20, height 65 ]
-                    ]
+                        ( True, Descending ) ->
+                            Style.downArrow
+                    )
+                ]
+                [ El.text title
+                    |> El.el [ Font.size 20, height 65 ]
                 ]
 
         content i element =

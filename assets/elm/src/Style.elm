@@ -60,17 +60,29 @@ listIcon =
 
 upArrow : Element msg
 upArrow =
-    makeIcon "ArrUp_C.svg" "up arrow icon"
+    El.image
+        [ El.height (El.px 25), El.width (El.px 25) ]
+        { src = Url.Builder.absolute [ "images", "ArrUp_C.svg" ] []
+        , description = "up arrow icon"
+        }
 
 
 downArrow : Element msg
 downArrow =
-    makeIcon "ArrDown_C.svg" "down arrow icon"
+    El.image
+        [ El.height (El.px 25), El.width (El.px 25) ]
+        { src = Url.Builder.absolute [ "images", "ArrDown_C.svg" ] []
+        , description = "down arrow icon"
+        }
 
 
 upDownArrow : Element msg
 upDownArrow =
-    makeIcon "ArrUpDown_C.svg" "up down arrow icon"
+    El.image
+        [ El.height (El.px 25), El.width (El.px 20) ]
+        { src = Url.Builder.absolute [ "images", "ArrUpDown_C.svg" ] []
+        , description = "up down arrow icon"
+        }
 
 
 rightArrow : Element msg
@@ -80,7 +92,12 @@ rightArrow =
 
 greyRightArrow : Element msg
 greyRightArrow =
-    makeIcon "ArrRight_G.svg" "Grey right arrow"
+    makeIcon "ArrRight_G.svg" "Grey rlght arrow"
+
+
+leftArrow : Element msg
+leftArrow =
+    makeIcon "ArrLeft_C.svg" "Cyan left arrow"
 
 
 greyLeftArrow : Element msg

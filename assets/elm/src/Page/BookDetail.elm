@@ -95,8 +95,8 @@ view model =
     let
         back =
             Route.link Route.Books
-                [ Font.color Style.grey, Border.color Style.grey, Border.width 2, width 220 ]
-                (El.row [ height 40, El.alignLeft ] [ Style.greyLeftArrow, El.text "Back to Mainpage" ])
+                [ Font.color Style.lightCyan, Border.color Style.lightCyan, Border.width 2, width 220 ]
+                (El.row [ height 40, El.alignLeft ] [ Style.leftArrow, El.text "Back to Mainpage" ])
                 |> El.el [ El.paddingEach { left = 40, right = 0, top = 0, bottom = 0 }, Font.size 20 ]
 
         backRight =

@@ -466,11 +466,11 @@ view model =
     let
         back =
             Route.link Route.Books
-                [ Font.color Style.grey
-                , Border.color Style.grey
+                [ Font.color Style.lightCyan
+                , Border.color Style.lightCyan
                 , Border.width 2
                 ]
-                (El.row [ El.paddingXY 10 5, height 40 ] [ Style.greyLeftArrow, El.text "Back to Mainpage" ])
+                (El.row [ El.paddingXY 10 5, height 40 ] [ Style.leftArrow, El.text "Back to Mainpage" ])
                 |> El.el [ El.paddingEach { left = 40, right = 0, top = 0, bottom = 0 }, Font.size 20 ]
 
         explanation =

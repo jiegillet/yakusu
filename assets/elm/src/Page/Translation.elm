@@ -791,8 +791,14 @@ saveAndReturn save =
     Input.button [ El.paddingXY 70 0 ]
         { onPress = Just save
         , label =
-            El.row [ El.alignLeft, height 40 ] [ Style.greyLeftArrow, El.text "Save all and Return" ]
-                |> El.el [ Font.color Style.grey, Border.color Style.grey, Border.width 2, Font.size 20, width 230 ]
+            El.row [ El.alignLeft, height 40 ] [ Style.leftArrow, El.text "Save all and Return" ]
+                |> El.el
+                    [ Font.color Style.lightCyan
+                    , Border.color Style.lightCyan
+                    , Border.width 2
+                    , Font.size 20
+                    , width 230
+                    ]
         }
 
 
@@ -962,7 +968,11 @@ viewTranslate model pages =
                 [ viewButtons model.mode (ZipList.current pages).id
                 , case (ZipList.current pages).translations of
                     [] ->
-                        explanation
+                        if ZipList.currentIndex pages == 0 then
+                            explanation
+
+                        else
+                            El.none
 
                     translations ->
                         translations
@@ -1005,7 +1015,7 @@ viewImage mode { translations, image } blob tempPath =
     in
     Svg.svg
         (A.width "1000" :: A.height "751" :: A.viewBox "0 0 1000 752" :: event)
-        (Svg.rect [ A.width "1000", A.height "751", A.fill "rgb(61, 152, 255)" ] []
+        (Svg.rect [ A.width "1000", A.height "751", A.fill (toHex lightCyan) ] []
             :: Svg.rect [ A.x "2", A.y "2", A.width "996", A.height "747", A.fill "rgb(255, 255, 255)" ] []
             :: Svg.image [ A.x "2", A.y "2", A.width "996", A.height "747", A.xlinkHref image ] []
             :: paths
@@ -1016,6 +1026,15 @@ viewImage mode { translations, image } blob tempPath =
 yellow : Color
 yellow =
     Color 251 236 93 0.25
+
+
+lightCyan : Color
+lightCyan =
+    let
+        { red, green, blue, alpha } =
+            El.toRgb Style.lightCyan
+    in
+    { red = round (255 * red), green = round (255 * green), blue = round (255 * blue), alpha = alpha }
 
 
 colors : List Color
