@@ -15,7 +15,6 @@ defmodule YakusuWeb.Books.TranslationBookController do
     with {:ok, %TranslationBook{} = translation_book} <- Books.create_translation_book(translation_book_params) do
       conn
       |> put_status(:created)
-      |> put_resp_header("location", Routes.books_translation_book_path(conn, :show, translation_book))
       |> render("show.json", translation_book: translation_book)
     end
   end

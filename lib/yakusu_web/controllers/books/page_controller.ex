@@ -24,7 +24,6 @@ defmodule YakusuWeb.Books.PageController do
     with {:ok, %Page{} = page} <- Books.create_page(page_params) do
       conn
       |> put_status(:created)
-      |> put_resp_header("location", Routes.books_page_path(conn, :show, page))
       |> render("show.json", page: page)
     end
   end

@@ -3,7 +3,6 @@ defmodule YakusuWeb.Books.BookController do
 
   alias Yakusu.Books
   alias Yakusu.Books.Book
-  alias Yakusu.Repo
 
   action_fallback YakusuWeb.FallbackController
 
@@ -16,7 +15,6 @@ defmodule YakusuWeb.Books.BookController do
     with {:ok, %Book{} = book} <- Books.create_book(book_params) do
       conn
       |> put_status(:created)
-      |> put_resp_header("location", Routes.books_book_path(conn, :show, book))
       |> render("show.json", book: book)
     end
   end

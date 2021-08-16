@@ -1,8 +1,6 @@
 defmodule YakusuWeb.Books.BookView do
   use YakusuWeb, :view
   alias YakusuWeb.Books.BookView
-  alias Yakusu.Books
-  alias Yakusu.Books.{Book, Page}
   alias YakusuWeb.LanguageView
 
   def render("index.json", %{books: books}) do

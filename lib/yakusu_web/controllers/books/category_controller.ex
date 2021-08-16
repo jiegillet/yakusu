@@ -15,7 +15,6 @@ defmodule YakusuWeb.Books.CategoryController do
     with {:ok, %Category{} = category} <- Books.create_category(category_params) do
       conn
       |> put_status(:created)
-      |> put_resp_header("location", Routes.category_path(conn, :show, category))
       |> render("show.json", category: category)
     end
   end
