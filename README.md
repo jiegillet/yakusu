@@ -4,19 +4,19 @@
 
 The translating workflow is designed in 3 phases that can be done by different people:
 
-#### Uploading
+#### 1. Uploading
 
 Basic information (title, author, language, theme) and pictures of the pages are uploaded on the server. The images are saved greyed out and blurred to a point where text is no longer readable to avoid any reproduction of the book. 
 
 All the uploaded books and translations are visible and accessible from the home page.
 
-#### Translating
+#### 2. Translating
 
 A book translation in a specific language is created. The translator draws colored blobs on the pages and adds translations for those specific areas. This is especially useful for non-linear picture books.
 
 Translators can leave translation notes, and choose to save or not.
 
-#### Labeling
+#### 3. Labeling
 
 Book translations can be downloaded in text format suitable for direct copy/pasting into a label maker software. The text is divided into chunks adjusted for the maximum printable label size and further divided with white spaces to show where the labels should be cut.
 
