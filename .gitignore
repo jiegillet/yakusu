@@ -1,15 +1,9 @@
 # Elm stuff
-
 /assets/elm/elm-stuff
 /assets/elm/index.html
 
 # Other things
-
 /others
-*.DS_Store
-
-# VS Code
-*.code-workspace
 
 # The directory Mix will write compiled artifacts to.
 /_build/
