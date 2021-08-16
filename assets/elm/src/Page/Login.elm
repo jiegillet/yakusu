@@ -1,20 +1,13 @@
 module Page.Login exposing (..)
 
 import Api exposing (Cred(..), User)
-import Api.Endpoint as Endpoint
 import Browser.Events
-import Browser.Navigation as Navigation
 import Common exposing (Context)
-import Dict exposing (Dict)
 import Element as El exposing (Element)
 import Element.Background as Background
-import Element.Border as Border
-import Element.Events as Events
 import Element.Font as Font
 import Element.Input as Input
-import Http exposing (Error)
 import Json.Decode as Decode exposing (Decoder)
-import Json.Encode as Encode exposing (Value)
 import RemoteData exposing (RemoteData(..), WebData)
 import Route exposing (Route)
 import Style
@@ -106,7 +99,7 @@ update msg model =
         PressedKey key ->
             case ( key, model.loginInfo /= LoginInfo "" "" ) of
                 -- ( Enter, True ) ->
-                --     ( model, slateLogin model.loginInfo )
+                --     ( model, apiLogin model.loginInfo )
                 _ ->
                     ( model, Cmd.none )
 
@@ -123,8 +116,7 @@ view model =
     { title = "Sign in"
     , body =
         El.column [ El.width (El.px (model.context |> .windowWidth)) ]
-            [ Common.viewHeader model.context ClickedLogOut
-            , if model.showBlank then
+            [ if model.showBlank then
                 El.none
 
               else
@@ -139,36 +131,35 @@ view model =
 
 
 viewCandidateLogin : LoginInfo -> Element Msg
-viewCandidateLogin ({ username, password } as login) =
+viewCandidateLogin { username, password } =
     El.column [ El.spacing 15 ]
-        [ El.text "Please enter the email and password you used for your application"
+        [ El.text "Authentification has not been implemented yet"
         , Input.username [ El.width (El.px 200) ]
             { onChange =
                 \s -> EnteredLoginInfo (LoginInfo s password)
             , text = username
-            , placeholder = Just (Input.placeholder [] (El.text "OIST Admissions Email"))
-            , label = Input.labelHidden "OIST Admissions Email"
+            , placeholder = Just (Input.placeholder [] (El.text "Click Log in"))
+            , label = Input.labelHidden "Email"
             }
         , Input.currentPassword [ El.width (El.px 200) ]
             { onChange =
                 \s -> EnteredLoginInfo (LoginInfo username s)
             , text = password
-            , placeholder = Just (Input.placeholder [] (El.text "OIST Admissions Password"))
-            , label = Input.labelHidden "OIST Admissions Password"
+            , placeholder = Just (Input.placeholder [] (El.text "Click Log in"))
+            , label = Input.labelHidden "Password"
             , show = False
             }
         , El.link []
             { url =
-                Url.Builder.crossOrigin "https://apply.oist.jp"
-                    [ "account", "reset" ]
-                    -- TODO return url
+                Url.Builder.crossOrigin "https://google.com"
+                    []
                     []
             , label =
                 El.text "Forgot your password?"
-                    |> El.el [ Font.underline, Font.color Style.lightRed ]
+                    |> El.el [ Font.underline, Font.color Style.lightCyan ]
             }
         , Input.button
-            [ Background.color Style.lightRed
+            [ Background.color Style.lightCyan
             , El.spacing 5
             , El.paddingXY 40 5
             , Font.color Style.white
@@ -208,7 +199,7 @@ toKey string =
 
 
 subscriptions : Model -> Sub Msg
-subscriptions model =
+subscriptions _ =
     Sub.batch
         [ Browser.Events.onKeyPress (Decode.map PressedKey keyDecoder)
         ]
@@ -216,8 +207,8 @@ subscriptions model =
 
 
 --API
--- slateLogin : LoginInfo -> Cmd Msg
--- slateLogin { username, password } =
---     Api.noCredGet (Endpoint.slateLogIn username password)
+-- apiLogin : LoginInfo -> Cmd Msg
+-- apiLogin { username, password } =
+--     Api.noCredGet (Endpoint.apiLogIn username password)
 --         GotCred
 --         Api.credDecoder
