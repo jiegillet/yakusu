@@ -252,11 +252,10 @@ changeRouteTo maybeRoute model =
 subscriptions : Model -> Sub Msg
 subscriptions model =
     let
-        context =
-            getContext model
-
+        -- context =
+        --     getContext model
         common =
-            [ Events.onResize (\w h -> GotWindowWidth w)
+            [ Events.onResize (\w _ -> GotWindowWidth w)
             , Api.storeChanged GotNewCred
             ]
 

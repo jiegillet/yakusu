@@ -1,16 +1,14 @@
-module Common exposing (Context, height, showMonth, showWeekday, viewErrors, viewFeedback, viewHeader, width)
-
--- import Element.Input as Input
+module Common exposing (Context, height, showError, showMonth, showWeekday, viewHeader, width)
 
 import Api exposing (Cred)
 import Browser.Navigation exposing (Key)
 import Element as El exposing (Element)
 import Element.Background as Background
-import Element.Border as Border
 import Element.Font as Font
 import Element.Lazy as Lazy
-import Http exposing (Error(..))
-import RemoteData exposing (RemoteData(..), WebData)
+import Graphql.Http exposing (Error, HttpError(..), RawError(..))
+import Json.Decode as Decode
+import RemoteData exposing (RemoteData(..))
 import Route
 import Style
 import Time exposing (Month(..), Weekday(..))
@@ -44,7 +42,7 @@ viewHeader =
 
 
 viewHeaderHelper : { a | cred : Maybe Cred, windowWidth : Int } -> msg -> Element msg
-viewHeaderHelper { cred, windowWidth } logout =
+viewHeaderHelper { windowWidth } _ =
     El.row
         [ height 100
         , width windowWidth
@@ -84,88 +82,82 @@ viewHeaderHelper { cred, windowWidth } logout =
 --                 |> El.el [ El.centerY ]
 --             ]
 --    )
+-- viewFeedback : WebData String -> Element msg
+-- viewFeedback feedback =
+--     case feedback of
+--         Success text ->
+--             El.text text
+--                 |> El.el [ El.centerX ]
+--                 |> El.el
+--                     [ El.width (El.px 400)
+--                     , Border.solid
+--                     , Border.color Style.oistRed
+--                     , Border.width 1
+--                     , El.centerX
+--                     , El.padding 12
+--                     ]
+--         Failure err ->
+--             El.paragraph [] [ El.text (showError err) ]
+--                 |> El.el [ El.centerX ]
+--                 |> El.el
+--                     [ El.width (El.px 400)
+--                     , Border.solid
+--                     , Border.color Style.oistRed
+--                     , Border.width 1
+--                     , El.centerX
+--                     , El.padding 12
+--                     ]
+--         _ ->
+--             El.el [ El.height (El.px 40) ] El.none
+-- viewErrors : WebData a -> Element msg
+-- viewErrors feedback =
+--     case feedback of
+--         Failure err ->
+--             El.text (showError err)
+--                 |> El.el [ El.centerX ]
+--                 |> El.el
+--                     [ El.width (El.px 400)
+--                     , Border.solid
+--                     , Border.color Style.oistRed
+--                     , Border.width 1
+--                     , El.centerX
+--                     , El.padding 12
+--                     ]
+--         _ ->
+--             El.el [ El.height (El.px 40) ] El.none
 
 
-viewFeedback : WebData String -> Element msg
-viewFeedback feedback =
-    case feedback of
-        Success text ->
-            El.text text
-                |> El.el [ El.centerX ]
-                |> El.el
-                    [ El.width (El.px 400)
-                    , Border.solid
-                    , Border.color Style.oistRed
-                    , Border.width 1
-                    , El.centerX
-                    , El.padding 12
-                    ]
+showError : Error a -> String
+showError result =
+    case result of
+        HttpError (BadUrl url) ->
+            "The URL " ++ url ++ " is invalid"
 
-        Failure err ->
-            El.paragraph [] [ El.text (showError err) ]
-                |> El.el [ El.centerX ]
-                |> El.el
-                    [ El.width (El.px 400)
-                    , Border.solid
-                    , Border.color Style.oistRed
-                    , Border.width 1
-                    , El.centerX
-                    , El.padding 12
-                    ]
-
-        _ ->
-            El.el [ El.height (El.px 40) ] El.none
-
-
-viewErrors : WebData a -> Element msg
-viewErrors feedback =
-    case feedback of
-        Failure err ->
-            El.text (showError err)
-                |> El.el [ El.centerX ]
-                |> El.el
-                    [ El.width (El.px 400)
-                    , Border.solid
-                    , Border.color Style.oistRed
-                    , Border.width 1
-                    , El.centerX
-                    , El.padding 12
-                    ]
-
-        _ ->
-            El.el [ El.height (El.px 40) ] El.none
-
-
-
--- HELPER FUNCTIONS
-
-
-showError : Error -> String
-showError error =
-    case error of
-        BadUrl url ->
-            "The URL " ++ url ++ " was invalid"
-
-        Timeout ->
+        HttpError Timeout ->
             "Unable to reach the server, try again later"
 
-        NetworkError ->
+        HttpError NetworkError ->
             "Unable to reach the server, check your network connection"
 
-        BadStatus 500 ->
-            "The server had a problem, try again later"
+        HttpError (BadStatus { statusCode, statusText } response) ->
+            case statusCode of
+                500 ->
+                    "The server had a problem with this request"
 
-        BadStatus 400 ->
-            "Verify your information and try again"
+                400 ->
+                    "Verify your information and try again"
 
-        BadStatus 401 ->
-            "You are not authorized to access this resource"
+                401 ->
+                    "You are not authorized to access this resource"
 
-        BadStatus i ->
-            "Bas status: error " ++ String.fromInt i
+                _ ->
+                    "Bad status " ++ String.fromInt statusCode ++ ": " ++ statusText ++ ". " ++ response
 
-        BadBody errorMessage ->
-            errorMessage
+        HttpError (BadPayload err) ->
+            "Unexpected data received: " ++ Decode.errorToString err
+
+        GraphqlError _ _ ->
+            "GraphQL error"
 
 
 showWeekday : Weekday -> String

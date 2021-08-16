@@ -1,7 +1,6 @@
 module Style exposing (..)
 
 import Element as El exposing (Color, Element)
-import Element.Background as Background
 import Url.Builder
 
 
@@ -32,11 +31,6 @@ lightCyan =
 lightRed : Color
 lightRed =
     El.rgb255 225 98 107
-
-
-oistRed : Color
-oistRed =
-    El.rgb255 200 0 25
 
 
 
