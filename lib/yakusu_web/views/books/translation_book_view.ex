@@ -34,11 +34,9 @@ defmodule YakusuWeb.Books.TranslationBookView do
     Translation: #{book.title} by #{book.author}
 
     This translation was provided by #{book.translator}
-    #{
-      if not is_nil(book.notes) do
-        "Translator notes:\n#{book.notes}\n"
-      end
-    }
+    #{if not is_nil(book.notes) do
+      "Translator notes:\n#{book.notes}\n"
+    end}
     The following translation has been grouped by blocks of a length that can be printed in one go.
     Please copy paste individual blocks in the labeling app.
     Two spaces indicate where the tape should be cut.
@@ -54,7 +52,7 @@ defmodule YakusuWeb.Books.TranslationBookView do
     Books.get_book!(book.book_id)
     |> Books.list_pages()
     |> Enum.sort_by(& &1.page_number)
-    |> Enum.map(&Books.list_translations/1)
+    |> Enum.map(&Books.list_translations(&1, book))
     |> Enum.concat()
     |> Enum.map(& &1.text)
     |> Enum.map(&String.trim/1)
