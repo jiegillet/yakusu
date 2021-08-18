@@ -46,8 +46,7 @@ module.exports = (env, options) => {
       ]
     },
     plugins: [
-      new CopyWebpackPlugin([{ from: 'static/', to: '../' }])
+      new CopyWebpackPlugin({ patterns: [{ from: 'static/', to: '../' }]})
     ]
-      .concat(devMode ? [new HardSourceWebpackPlugin()] : [])
   }
 };
