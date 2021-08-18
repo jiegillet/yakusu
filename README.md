@@ -1,6 +1,6 @@
 # :Yakusu
 
-:Yakusu is a tool to help translating children books, printing the translations with a label maker and pasting the labels at the appropriate locations.
+:Yakusu is a tool to help translating books or other printed documents, printing the translations with a label maker and pasting the labels at the appropriate locations.
 
 The translating workflow is designed in 3 phases that can be done by different people:
 
@@ -12,9 +12,11 @@ All the uploaded books and translations are visible and accessible from the home
 
 #### 2. Translating
 
-A book translation in a specific language is created. The translator draws colored blobs on the pages and adds translations for those specific areas. This is especially useful for non-linear picture books.
+A book translation in a specific language is created. The translator draws colored blobs on the pages and adds translations for those specific areas. This is especially useful for non-linear picture books or posters.
 
 Translators can leave translation notes, and choose to save or not.
+
+![Translating mode](https://repository-images.githubusercontent.com/308027892/989e3158-8774-48c6-ab64-26760a592fd8)
 
 #### 3. Labeling
 
